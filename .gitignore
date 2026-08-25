@@ -1,11 +1,48 @@
+# Environments & Credentials
+.env
+*.env
+railway_environment_variables.env
+api_keys.json
+ALL_UNPUSHED_CREDENTIALS.json
+
+# Virtual Environment & Python Caches
 .venv/
 __pycache__/
 *.pyc
-.env
-railway_environment_variables.env
+
+# Node Modules & OS Files
+node_modules/
 .DS_Store
 *.log
-api_keys.json
-ALL_UNPUSHED_CREDENTIALS.json
+
+# Local Runtime State & Dump Logs
+call_history.jsonl
+call_logs.jsonl
+call_queue.jsonl
+test_call_results.jsonl
+phone_line_states.json
+campaign_schedule.json
+campaign_human_responses.json
+
+# Intermediate / Redundant Data Export CSVs
+*_connected_*.csv
+*_unconnected_*.csv
+*_uncalled_*.csv
+*_called_*.csv
+group1_*.csv
+group2_*.csv
+group3_*.csv
+active_*.csv
+silent_call_*.csv
+Texas_Roofers_*.csv
+houston_*.csv
+alex_campaign.csv
+call_summary.csv
+campaign_live_responses_report.md
+
+# Internal Scratch & Redundant Dump Files
 whatsapp-auto-saver/
 notes/
+scratch/
+files/
+
