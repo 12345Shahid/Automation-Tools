@@ -14,6 +14,7 @@ from src.email_writer import generate_outreach_email
 from src.email_reader import EmailReader
 from src.email_chat_engine import EmailChatEngine
 from src.lead_scraper import LeadScraper
+from src.ai_provider import load_ai_config, save_ai_config, test_provider_connection, PROVIDERS
 
 app = FastAPI(title="Job Co-Pilot Bridge Server", version="1.0.0")
 
@@ -407,6 +408,48 @@ def api_export_leads(req: LeadExportRequest):
         return {"success": True, "path": str(csv_path), "filename": csv_path.name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class AIConfigUpdateRequest(BaseModel):
+    provider: str
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+
+class AITestRequest(BaseModel):
+    provider: str
+    api_key: str
+    model: Optional[str] = None
+
+@app.get("/api/ai/config")
+def get_ai_config():
+    config = load_ai_config()
+    raw_key = config.get("api_key", "")
+    masked_key = ""
+    if raw_key:
+        if len(raw_key) > 8:
+            masked_key = raw_key[:4] + "..." + raw_key[-4:]
+        else:
+            masked_key = "****"
+    
+    return {
+        "current_provider": config.get("provider", "offline"),
+        "current_model": config.get("model", ""),
+        "has_api_key": bool(raw_key),
+        "masked_api_key": masked_key,
+        "providers": PROVIDERS
+    }
+
+@app.post("/api/ai/config")
+def update_ai_config(req: AIConfigUpdateRequest):
+    try:
+        updated = save_ai_config(req.provider, req.api_key, req.model)
+        return {"success": True, "config": updated}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/ai/test")
+def test_ai_connection_endpoint(req: AITestRequest):
+    result = test_provider_connection(req.provider, req.api_key, req.model)
+    return result
 
 if __name__ == "__main__":
     import uvicorn

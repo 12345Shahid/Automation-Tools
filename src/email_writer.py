@@ -4,7 +4,7 @@ import random
 import re
 from typing import Dict, Optional, Any
 
-from src.config import call_kie_deepseek
+from src.ai_provider import call_active_llm
 
 FALLBACK_TEMPLATES = {
     "default": [
@@ -169,7 +169,7 @@ Return ONLY a valid JSON object with exactly two keys:
 """
 
     try:
-        content = call_kie_deepseek(prompt)
+        content = call_active_llm(prompt)
         cleaned = content.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]

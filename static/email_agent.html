@@ -47,8 +47,15 @@
         </button>
       </nav>
 
-      <!-- SMTP Status Badge -->
-      <div class="flex items-center gap-2.5">
+      <!-- AI Provider & Key Button -->
+      <div class="flex items-center gap-2">
+        <button onclick="openAiSettingsModal()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 text-xs font-medium transition cursor-pointer">
+          <i class="fa-solid fa-bolt text-indigo-400"></i>
+          <span id="aiProviderBadgeLabel">AI: Loading...</span>
+          <i class="fa-solid fa-sliders text-[10px] text-indigo-400/70 ml-1"></i>
+        </button>
+
+        <!-- SMTP Status Badge -->
         <div id="smtpBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span id="smtpStatusText">Connected</span>
@@ -341,10 +348,84 @@ thetorresmetalroofing@gmail.com, Torres, INVigorate Roofing"></textarea>
     </div>
   </main>
 
+  <!-- AI Provider & Model Settings Modal -->
+  <div id="aiSettingsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-white">AI Provider &amp; Model Settings</h3>
+            <p class="text-[11px] text-slate-400">Switch between APInex (20M free), OpenRouter, Kie, or Offline</p>
+          </div>
+        </div>
+        <button onclick="closeAiSettingsModal()" class="text-slate-400 hover:text-white p-1 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- Provider Select -->
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Select AI Provider</label>
+          <select id="modalProviderSelect" onchange="onModalProviderChange()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+            <option value="apinex">APInex — 20M Free Tokens (https://api.apinex.bond/v1)</option>
+            <option value="openrouter">OpenRouter — Universal Gateway (https://openrouter.ai/api/v1)</option>
+            <option value="kie">Kie.ai — DeepSeek Direct (https://api.kie.ai/openai/v1)</option>
+            <option value="offline">Offline Fallback — Zero Tokens (Rule-Based Dynamic Templates)</option>
+          </select>
+        </div>
+
+        <!-- API Key Input -->
+        <div id="modalApiKeyContainer">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium text-slate-300">API Key</label>
+            <span id="modalCurrentKeyIndicator" class="text-[10px] text-emerald-400 font-mono"></span>
+          </div>
+          <div class="relative">
+            <input id="modalApiKeyInput" type="password" placeholder="Enter API key (e.g. sk-apx... or sk-or-...)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 transition pr-10">
+            <button type="button" onclick="toggleKeyVisibility()" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200 text-xs">
+              <i id="toggleKeyIcon" class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <p id="modalProviderHint" class="text-[11px] text-slate-500 mt-1">Get your free key with 20M tokens at <a href="https://apinex.bond/overview" target="_blank" class="text-indigo-400 hover:underline">apinex.bond</a></p>
+        </div>
+
+        <!-- Model Select -->
+        <div id="modalModelContainer">
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Target Model</label>
+          <select id="modalModelSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+          </select>
+        </div>
+
+        <!-- Test Result Banner -->
+        <div id="modalTestBanner" class="p-3 rounded-xl border text-xs hidden"></div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="px-6 py-3.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <button onclick="testAiConnectionFromModal()" id="btnTestAiModal" class="py-2 px-3.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 border border-slate-700 cursor-pointer">
+          <i class="fa-solid fa-bolt-lightning text-amber-400"></i> Test Connection
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeAiSettingsModal()" class="py-2 px-3.5 rounded-lg text-slate-400 hover:text-white text-xs transition cursor-pointer">
+            Cancel
+          </button>
+          <button onclick="saveAiSettingsFromModal()" id="btnSaveAiModal" class="py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition flex items-center gap-1.5 shadow-md cursor-pointer">
+            <i class="fa-solid fa-check"></i> Save &amp; Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentDrafts = [];
     let chatHistory = [];
     let currentScrapedLeads = [];
+    let globalAiConfig = null;
 
     // Tab Switching
     function switchTab(tab) {
@@ -394,6 +475,180 @@ thetorresmetalroofing@gmail.com, Torres, INVigorate Roofing"></textarea>
         checkStatus();
       } catch (e) {
         alert("Error testing SMTP: " + e);
+      }
+    }
+
+    // ----------------------------------------------------
+    // AI PROVIDER & MODEL MANAGEMENT
+    // ----------------------------------------------------
+    async function loadAiConfig() {
+      try {
+        const res = await fetch('/api/ai/config');
+        const data = await res.json();
+        globalAiConfig = data;
+        updateAiBadge(data);
+      } catch (e) {
+        console.error("Failed to load AI config", e);
+      }
+    }
+
+    function updateAiBadge(config) {
+      const label = document.getElementById('aiProviderBadgeLabel');
+      if (!label) return;
+      const prov = config.current_provider;
+      if (prov === 'offline') {
+        label.innerText = "AI: Offline Fallback (Free)";
+      } else if (prov === 'apinex') {
+        label.innerText = `AI: APInex (${config.current_model || 'deepseek'})`;
+      } else if (prov === 'openrouter') {
+        label.innerText = `AI: OpenRouter (${(config.current_model || '').split('/')[1] || 'deepseek'})`;
+      } else if (prov === 'kie') {
+        label.innerText = `AI: Kie.ai (${config.current_model || 'deepseek'})`;
+      } else {
+        label.innerText = `AI: ${prov.toUpperCase()}`;
+      }
+    }
+
+    function openAiSettingsModal() {
+      if (!globalAiConfig) {
+        loadAiConfig().then(populateAiModal);
+      } else {
+        populateAiModal();
+      }
+      document.getElementById('aiSettingsModal').classList.remove('hidden');
+    }
+
+    function closeAiSettingsModal() {
+      document.getElementById('aiSettingsModal').classList.add('hidden');
+      document.getElementById('modalTestBanner').classList.add('hidden');
+    }
+
+    function populateAiModal() {
+      if (!globalAiConfig) return;
+      const provSelect = document.getElementById('modalProviderSelect');
+      provSelect.value = globalAiConfig.current_provider || 'apinex';
+      
+      const keyIndicator = document.getElementById('modalCurrentKeyIndicator');
+      if (globalAiConfig.has_api_key) {
+        keyIndicator.innerText = `Saved: ${globalAiConfig.masked_api_key}`;
+      } else {
+        keyIndicator.innerText = "No key configured";
+      }
+
+      onModalProviderChange();
+    }
+
+    function onModalProviderChange() {
+      const prov = document.getElementById('modalProviderSelect').value;
+      const keyContainer = document.getElementById('modalApiKeyContainer');
+      const modelSelect = document.getElementById('modalModelSelect');
+      const hint = document.getElementById('modalProviderHint');
+      const banner = document.getElementById('modalTestBanner');
+      banner.classList.add('hidden');
+
+      if (prov === 'offline') {
+        keyContainer.style.display = 'none';
+        modelSelect.innerHTML = `<option value="rule-based-dynamic">Rule-based dynamic templates (offline)</option>`;
+      } else {
+        keyContainer.style.display = 'block';
+        const provMeta = globalAiConfig?.providers?.[prov];
+        const models = provMeta?.available_models || ["deepseek-chat"];
+        const curModel = globalAiConfig?.current_model;
+
+        modelSelect.innerHTML = models.map(m => `
+          <option value="${m}" ${m === curModel ? 'selected' : ''}>${m}</option>
+        `).join('');
+
+        if (prov === 'apinex') {
+          hint.innerHTML = `20M free tokens gateway. Get key at <a href="https://apinex.bond/overview" target="_blank" class="text-indigo-400 hover:underline">apinex.bond</a>`;
+        } else if (prov === 'openrouter') {
+          hint.innerHTML = `Access any model. Get key at <a href="https://openrouter.ai" target="_blank" class="text-indigo-400 hover:underline">openrouter.ai</a>`;
+        } else if (prov === 'kie') {
+          hint.innerHTML = `Kie.ai DeepSeek API endpoint.`;
+        }
+      }
+    }
+
+    function toggleKeyVisibility() {
+      const input = document.getElementById('modalApiKeyInput');
+      const icon = document.getElementById('toggleKeyIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = "fa-solid fa-eye-slash";
+      } else {
+        input.type = 'password';
+        icon.className = "fa-solid fa-eye";
+      }
+    }
+
+    async function testAiConnectionFromModal() {
+      const prov = document.getElementById('modalProviderSelect').value;
+      const keyInput = document.getElementById('modalApiKeyInput').value.trim();
+      const model = document.getElementById('modalModelSelect').value;
+      const banner = document.getElementById('modalTestBanner');
+      const btn = document.getElementById('btnTestAiModal');
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Testing...`;
+      banner.classList.remove('hidden');
+      banner.className = "p-3 rounded-xl border text-xs bg-slate-950 border-slate-700 text-slate-300";
+      banner.innerText = "Connecting to provider API...";
+
+      try {
+        const res = await fetch('/api/ai/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: prov, api_key: keyInput, model: model })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          banner.className = "p-3 rounded-xl border text-xs bg-emerald-500/10 border-emerald-500/30 text-emerald-300";
+          banner.innerHTML = `<strong>✅ Connected!</strong> ${escapeHtml(data.message)} <br><span class="text-[11px] text-emerald-400/80">Response: "${escapeHtml(data.reply)}" (${data.latency_ms}ms)</span>`;
+        } else {
+          banner.className = "p-3 rounded-xl border text-xs bg-rose-500/10 border-rose-500/30 text-rose-300";
+          banner.innerHTML = `<strong>❌ Connection Failed:</strong> ${escapeHtml(data.message)}`;
+        }
+      } catch (err) {
+        banner.className = "p-3 rounded-xl border text-xs bg-rose-500/10 border-rose-500/30 text-rose-300";
+        banner.innerHTML = `<strong>❌ Request Error:</strong> ${escapeHtml(err.message)}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-bolt-lightning text-amber-400"></i> Test Connection`;
+      }
+    }
+
+    async function saveAiSettingsFromModal() {
+      const prov = document.getElementById('modalProviderSelect').value;
+      const keyInput = document.getElementById('modalApiKeyInput').value.trim();
+      const model = document.getElementById('modalModelSelect').value;
+      const btn = document.getElementById('btnSaveAiModal');
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Saving...`;
+
+      try {
+        const res = await fetch('/api/ai/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: prov,
+            api_key: keyInput || undefined,
+            model: model
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadAiConfig();
+          closeAiSettingsModal();
+          alert(`AI Provider updated to ${prov.toUpperCase()} (${model})!`);
+        } else {
+          alert("Failed to save settings: " + JSON.stringify(data));
+        }
+      } catch (err) {
+        alert("Error saving settings: " + err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Save &amp; Apply`;
       }
     }
 
@@ -977,6 +1232,7 @@ acoroofing.gutters@gmail.com, ACO, ACO Roofing & Gutters`;
     }
 
     // Init
+    loadAiConfig();
     checkStatus();
     loadHistory();
     updateRecipientCount();
