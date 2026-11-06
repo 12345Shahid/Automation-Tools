@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from src.email_reader import EmailReader
 from src.email_sender import EmailSender
 from src.email_writer import generate_outreach_email, infer_name_and_company
+from src.lead_scraper import LeadScraper
 
 class EmailChatEngine:
     def __init__(self):
@@ -19,7 +20,17 @@ class EmailChatEngine:
         msg = user_message.strip()
         msg_lower = msg.lower()
 
-        # 1. SEND EMAIL INTENT
+        # 1. SCRAPE LEADS & AUTONOMOUS DISCOVERY INTENT
+        # e.g. "find 10 roofers from Dallas who don't have a website and fill up their contact details into CSV"
+        # or "find 10 IT companies in Dallas for contracting"
+        scrape_triggers = ["roofer", "roofing", "contractor", "companies", "without a website", "don't have a website", "no website", "scrape", "collect", "fill up", "it companies", "into a csv", "into csv"]
+        is_scrape_intent = any(trigger in msg_lower for trigger in ["scrape", "collect", "who don't have a website", "without a website", "fill up their contact", "into a csv"]) or \
+                           (any(t in msg_lower for t in ["find", "get"]) and any(ind in msg_lower for ind in ["roofer", "roofing", "it companies", "contractors", "agencies"]))
+
+        if is_scrape_intent:
+            return self._handle_scrape_leads_intent(msg)
+
+        # 2. SEND EMAIL INTENT
         # e.g. "email alex@acme.com and tell him I can build a website for $1"
         # or "send an email to test@domain.com saying..."
         email_pattern = r"[\w\.-]+@[\w\.-]+\.\w+"
@@ -32,44 +43,136 @@ class EmailChatEngine:
             recipient_email = emails_found[0]
             return self._handle_send_email_intent(msg, recipient_email)
 
-        # 2. CHECK INBOX INTENT
+        # 3. CHECK INBOX INTENT
         # e.g. "check my emails", "check my last 5 emails", "what are my latest emails", "recent emails", "check inbox"
         check_inbox_pattern = r"(check|show|read|fetch|get|view|list|what are|see)\s+(?:my\s+)?(?:recent\s+|latest\s+|last\s+\d*\s*)?(?:emails?|inbox|messages?)"
         is_inbox_intent = bool(re.search(check_inbox_pattern, msg_lower)) or bool(re.search(r"\b(inbox|recent emails?|latest emails?|unread emails?)\b", msg_lower))
 
-        # Disambiguate: if search/find is explicitly asked
         if is_inbox_intent and not any(w in msg_lower for w in ["find", "search", "about", "from "]):
             return self._handle_check_inbox_intent(msg)
 
-        # 3. SEARCH / FIND EMAILS INTENT
+        # 4. SEARCH / FIND EMAILS INTENT
         # e.g. "find emails from google", "find emails from test@example.com", "search emails about invoice"
         search_triggers = ["find email", "search email", "look for email", "find any email", "emails from", "email from", "search for", "find "]
         if any(trigger in msg_lower for trigger in search_triggers) or ("search" in msg_lower) or ("from " in msg_lower and "email" in msg_lower):
             return self._handle_search_intent(msg)
 
-        # 4. SUMMARIZE INTENT
+        # 5. SUMMARIZE INTENT
         # e.g. "summarize my emails", "summarize latest emails"
         if "summarize" in msg_lower or "summary" in msg_lower:
             return self._handle_summarize_intent(msg)
 
-        # 5. GENERAL / HELP INTENT
+        # 6. GENERAL / HELP INTENT
         return self._handle_help_intent(msg)
+
+    def _handle_scrape_leads_intent(self, msg: str) -> Dict[str, Any]:
+        """Handles autonomous lead scraping and CSV generation."""
+        msg_lower = msg.lower()
+
+        # Extract desired count (default 10)
+        count_match = re.search(r"(\d+)\s+(?:roofers?|companies|agencies|contractors|leads)", msg_lower)
+        count = int(count_match.group(1)) if count_match else 10
+        count = max(1, min(count, 20))
+
+        # Determine location (default Dallas, TX)
+        location = "Dallas, TX"
+        loc_match = re.search(r"(?:in|from)\s+([a-zA-Z\s]+)(?:who|that|for|\.|$)", msg, flags=re.IGNORECASE)
+        if loc_match:
+            cand = loc_match.group(1).strip()
+            if cand.lower() not in ("the web", "google", "us", "usa", "csv"):
+                location = cand if "tx" in cand.lower() or "texas" in cand.lower() else f"{cand}, TX"
+
+        scraper = LeadScraper()
+
+        # Check if IT agency or roofer/local business
+        is_it = any(w in msg_lower for w in ["it ", "software", "contracting", "independent contractor", "developer"])
+        
+        try:
+            if is_it:
+                leads = scraper.find_it_companies(
+                    query="IT consulting software development agency",
+                    location=location,
+                    count=count
+                )
+                csv_filename = "leads_it_agencies.csv"
+                campaign_type = "it_contractor"
+            else:
+                # Default is local SMB without website (e.g. Dallas roofers)
+                industry = "roofing contractors" if ("roof" in msg_lower or "roofer" in msg_lower) else "local contractors"
+                leads = scraper.find_local_businesses(
+                    industry=industry,
+                    location=location,
+                    count=count,
+                    no_website_only=True
+                )
+                csv_filename = "leads_dallas_roofers.csv"
+                campaign_type = "roofer_no_website"
+
+            csv_path = scraper.export_to_csv(leads, csv_filename)
+
+            # Generate sample outreach email for the first lead with email
+            leads_with_email = [l for l in leads if l.get("email")]
+            sample_preview = ""
+            if leads_with_email:
+                first = leads_with_email[0]
+                draft = generate_outreach_email(
+                    email=first["email"],
+                    name=first.get("name"),
+                    company=first.get("company"),
+                    campaign_type=campaign_type
+                )
+                sample_preview = (
+                    f"\n\n**Sample Outreach Draft (for {first['company']}):**\n"
+                    f"• **Subject:** {draft['subject']}\n"
+                    f"```\n{draft['body_text']}\n```"
+                )
+
+            # Build readable summary table
+            summary_lines = [
+                f"🎯 **Found {len(leads)} target businesses in {location}!**\n",
+                f"📁 Saved and exported to: `{csv_path}`\n",
+                f"**Discovered Leads:**"
+            ]
+
+            for i, l in enumerate(leads[:8], 1):
+                status_icon = "❌ No Website" if not l.get("has_website") else f"🌐 {l.get('website')}"
+                email_str = f"`{l['email']}`" if l.get("email") else "*(Search in progress)*"
+                summary_lines.append(f"{i}. **{l['company']}** | Phone: `{l['phone']}` | {status_icon} | Email: {email_str}")
+
+            if len(leads) > 8:
+                summary_lines.append(f"\n*(and {len(leads) - 8} more saved to CSV...)*")
+
+            summary_lines.append(sample_preview)
+            summary_lines.append("\n💡 **Ready to reach out?** Reply **'Send to these leads'** or open the Web Dashboard to review before sending!")
+
+            return {
+                "response": "\n".join(summary_lines),
+                "action": "leads_scraped",
+                "data": {
+                    "count": len(leads),
+                    "leads": leads,
+                    "csv_path": str(csv_path),
+                    "campaign_type": campaign_type
+                }
+            }
+        except Exception as e:
+            return {
+                "response": f"❌ Error scraping leads: {str(e)}",
+                "action": "error",
+                "data": {"error": str(e)}
+            }
 
     def _handle_send_email_intent(self, msg: str, recipient_email: str) -> Dict[str, Any]:
         """Handles drafting and sending an email to the specified recipient."""
-        # Extract instructions or notes from the message
         notes = ""
         instruction_match = re.search(r"(?:and tell|telling|saying|say|about|with offer|offering|to build)\s+(.+)", msg, flags=re.IGNORECASE)
         if instruction_match:
             notes = instruction_match.group(1).strip()
 
-        # Check if user explicitly asked to send immediately
         auto_send = any(w in msg.lower() for w in ["send it", "send now", "automatically", "and send", "go ahead and send"])
 
-        # Infer name & company
         name, company = infer_name_and_company(recipient_email)
 
-        # Generate outreach email draft
         draft = generate_outreach_email(
             email=recipient_email,
             name=name if name != "there" else None,
@@ -79,7 +182,6 @@ class EmailChatEngine:
 
         already_sent = self.sender.is_already_sent(recipient_email)
 
-        # If user explicitly instructed to send it now
         if auto_send:
             send_res = self.sender.send_email(
                 to_email=recipient_email,
@@ -113,7 +215,6 @@ class EmailChatEngine:
                     "data": send_res
                 }
 
-        # Otherwise, prepare draft and offer one-click send
         status_note = "*(⚠️ Note: You previously sent an email to this address)*" if already_sent else ""
         response_text = (
             f"I have prepared the email for **{recipient_email}**! {status_note}\n\n"
@@ -172,17 +273,14 @@ class EmailChatEngine:
         from_address = None
         keyword = None
 
-        # Check for sender pattern: "from <email/name>"
         from_match = re.search(r"from\s+([^\s,]+)", msg, flags=re.IGNORECASE)
         if from_match:
             from_address = from_match.group(1).strip()
 
-        # Check for topic/keyword: "about <topic>", "mentioning <topic>", "keyword <topic>"
         keyword_match = re.search(r"(?:about|mentioning|keyword|containing|with|for)\s+([^\s,]+)", msg, flags=re.IGNORECASE)
         if keyword_match:
             keyword = keyword_match.group(1).strip().strip("'\"")
 
-        # If general search query
         if not from_address and not keyword:
             cleaned = re.sub(r"(find|search|look for|emails?|in my inbox|in inbox)", "", msg, flags=re.IGNORECASE).strip()
             keyword = cleaned if cleaned else None
@@ -258,19 +356,19 @@ class EmailChatEngine:
     def _handle_help_intent(self, msg: str) -> Dict[str, Any]:
         """Help and general prompt response."""
         help_text = (
-            "👋 **Hi! I am your Autonomous Email Assistant.**\n\n"
+            "👋 **Hi! I am your Autonomous Email & Lead Copilot.**\n\n"
             "Here is what you can ask me to do:\n"
-            "1. **Send an outreach email:**\n"
+            "1. **Scrape Leads & Generate CSV:**\n"
+            "   • *'Find 10 roofers from Dallas who don't have a website and fill up their contact details into CSV'*\n"
+            "   • *'Find 10 IT companies in Dallas for contracting'*\n"
+            "2. **Send an outreach email:**\n"
             "   • *'Email alex@acme.com and tell him I can build a website for $1'*\n"
             "   • *'Send email to founder@startup.io and send it now'*\n"
-            "2. **Check incoming emails:**\n"
+            "3. **Check incoming emails:**\n"
             "   • *'Check my inbox'* or *'Check my last 5 emails'*\n"
-            "3. **Search specific emails:**\n"
+            "4. **Search specific emails:**\n"
             "   • *'Find emails from google'*\n"
-            "   • *'Search emails about invoice'*\n"
-            "   • *'Find emails containing portfolio'*\n"
-            "4. **Summarize emails:**\n"
-            "   • *'Summarize my recent emails'*"
+            "   • *'Search emails about invoice'*"
         )
         return {
             "response": help_text,

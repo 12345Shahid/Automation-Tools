@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Autonomous Email Outreach &amp; Inbox Agent</title>
+  <title>Autonomous Email Outreach &amp; Lead Agent</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -25,9 +25,9 @@
         <div>
           <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
             Autonomous Email Agent
-            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Chat &amp; Outreach</span>
+            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Lead Gen &amp; Outreach</span>
           </h1>
-          <p class="text-xs text-slate-400">Conversational AI Dispatcher, Gmail Inbox Reader &amp; Search</p>
+          <p class="text-xs text-slate-400">Serper Web Lead Scraper, Gmail SMTP Dispatcher &amp; Inbox Reader</p>
         </div>
       </div>
 
@@ -35,6 +35,9 @@
       <nav class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
         <button id="tabBtnChat" onclick="switchTab('chat')" class="px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm">
           <i class="fa-solid fa-comments"></i> AI Chat Copilot
+        </button>
+        <button id="tabBtnLeads" onclick="switchTab('leads')" class="px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-crosshairs"></i> Lead Finder
         </button>
         <button id="tabBtnBulk" onclick="switchTab('bulk')" class="px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white">
           <i class="fa-solid fa-users"></i> Bulk Campaign
@@ -62,8 +65,11 @@
     <!-- Active Offer Banner -->
     <div class="mb-6 p-3.5 rounded-xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-900 border border-blue-900/40 flex flex-wrap items-center justify-between gap-3 text-xs">
       <div class="flex items-center gap-2.5">
-        <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold font-mono uppercase tracking-wider text-[10px]">Offer Context</span>
-        <span class="text-slate-300 font-medium">Offering 1 custom website build for <strong class="text-emerald-400">$1</strong> in exchange for a review/testimonial.</span>
+        <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold font-mono uppercase tracking-wider text-[10px]">Active Pipelines</span>
+        <span class="text-slate-300 font-medium">
+          1. <strong class="text-emerald-400">Roofers Without Websites</strong> (Free demo build + 10-min call) &nbsp;|&nbsp; 
+          2. <strong class="text-blue-400">IT Agencies</strong> (Independent contractor support)
+        </span>
       </div>
       <div class="text-slate-400">
         Account: <span class="text-white font-medium" id="senderEmail">shahidhasanpollob@gmail.com</span>
@@ -75,15 +81,14 @@
     <!-- ========================================== -->
     <div id="tabChat" class="flex-1 flex flex-col space-y-4">
       <div class="bg-slate-950 border border-slate-800 rounded-2xl flex-1 flex flex-col shadow-2xl overflow-hidden min-h-[580px]">
-        <!-- Chat Header -->
         <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
               <i class="fa-solid fa-wand-magic-sparkles"></i>
             </div>
             <div>
-              <h2 class="text-sm font-semibold text-white">Interactive Email Copilot</h2>
-              <p class="text-xs text-slate-400">Chat in plain English to send cold outreach, check inbox, or search past emails</p>
+              <h2 class="text-sm font-semibold text-white">Interactive Email &amp; Lead Copilot</h2>
+              <p class="text-xs text-slate-400">Ask in plain English to scrape leads, send cold outreach, or check inbox</p>
             </div>
           </div>
           <button onclick="clearChatHistory()" class="text-xs text-slate-500 hover:text-slate-300 transition">
@@ -91,7 +96,6 @@
           </button>
         </div>
 
-        <!-- Chat Message Area -->
         <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scroll max-h-[500px]">
           <!-- Welcome Bubble -->
           <div class="flex items-start gap-3 max-w-2xl">
@@ -99,20 +103,20 @@
               <i class="fa-solid fa-robot"></i>
             </div>
             <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-sm text-xs leading-relaxed text-slate-200 space-y-2">
-              <p class="font-medium text-white">Hello Shahid! 👋 I am your autonomous email agent.</p>
-              <p>You can talk to me directly. Try asking things like:</p>
+              <p class="font-medium text-white">Hello Shahid! 👋 I am your autonomous email &amp; lead agent.</p>
+              <p>You can talk to me directly. Try clicking or typing:</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <button onclick="usePrompt('Email alex@acme.com and tell him I can build a website for $1')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-blue-300 transition text-[11px]">
-                  ✍️ "Email alex@acme.com..."
+                <button onclick="usePrompt('Find 10 roofers from Dallas who don\'t have a website and fill up their contact details into CSV')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-300 transition text-[11px]">
+                  🎯 "Find 10 Dallas roofers (no website)..."
+                </button>
+                <button onclick="usePrompt('Find 10 IT companies in Dallas for contracting and export to CSV')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-indigo-300 transition text-[11px]">
+                  💼 "Find 10 IT companies in Dallas..."
                 </button>
                 <button onclick="usePrompt('Check my last 5 emails')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-emerald-300 transition text-[11px]">
                   📬 "Check my last 5 emails"
                 </button>
-                <button onclick="usePrompt('Find emails from google')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-300 transition text-[11px]">
-                  🔍 "Find emails from google"
-                </button>
-                <button onclick="usePrompt('Search emails about review offer')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-indigo-300 transition text-[11px]">
-                  🔎 "Search emails about review offer"
+                <button onclick="usePrompt('Email alex@acme.com and tell him I can build a website for $1')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-blue-300 transition text-[11px]">
+                  ✍️ "Email alex@acme.com..."
                 </button>
               </div>
             </div>
@@ -125,7 +129,7 @@
             <input 
               type="text" 
               id="chatInput" 
-              placeholder="e.g. Email founder@innovate.co and offer $1 website, or 'check my inbox'..." 
+              placeholder="e.g. 'Find 10 roofers from Dallas who don't have a website', or 'Check my inbox'..." 
               class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               autocomplete="off"
             />
@@ -143,10 +147,83 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB 2: BULK CAMPAIGN & LEADS               -->
+    <!-- TAB 2: LEAD FINDER & SCRAPER               -->
+    <!-- ========================================== -->
+    <div id="tabLeads" class="hidden flex-1 space-y-6">
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+              <i class="fa-solid fa-crosshairs text-base"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-white">Autonomous Lead Finder (Serper Google Places)</h3>
+              <p class="text-xs text-slate-400">Scrape businesses without websites or IT agencies, enrich emails, and export to CSV</p>
+            </div>
+          </div>
+
+          <!-- Quick Presets -->
+          <div class="flex items-center gap-2 text-xs">
+            <button onclick="setLeadPreset('roofers')" class="bg-slate-900 hover:bg-slate-800 text-amber-300 px-3 py-1.5 rounded-lg border border-slate-800 transition">
+              🔨 Dallas Roofers (No Website)
+            </button>
+            <button onclick="setLeadPreset('it')" class="bg-slate-900 hover:bg-slate-800 text-indigo-300 px-3 py-1.5 rounded-lg border border-slate-800 transition">
+              💻 Dallas IT Agencies
+            </button>
+          </div>
+        </div>
+
+        <!-- Search Form -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400 block mb-1 uppercase tracking-wider">Industry Keyword</label>
+            <input type="text" id="leadIndustry" value="roofing contractors" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400 block mb-1 uppercase tracking-wider">Location</label>
+            <input type="text" id="leadLocation" value="Dallas, TX" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400 block mb-1 uppercase tracking-wider">Target Leads Count</label>
+            <input type="number" id="leadCount" value="10" min="1" max="25" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" />
+          </div>
+          <div class="flex items-end">
+            <label class="flex items-center gap-2 cursor-pointer pb-2 text-xs text-slate-300">
+              <input type="checkbox" id="leadNoWebsite" checked class="rounded border-slate-800 text-blue-600 focus:ring-0 w-4 h-4" />
+              <span>Only businesses without a website</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+          <button id="btnScrapeLeads" onclick="executeLeadScrape()" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition flex items-center gap-2 shadow-lg shadow-amber-600/20">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Scrape &amp; Enrich Leads</span>
+          </button>
+
+          <div id="leadActionButtons" style="display: none;" class="flex items-center gap-2">
+            <button onclick="transferLeadsToBulk()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition flex items-center gap-1.5">
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+              <span>Transfer Leads to Outreach</span>
+            </button>
+            <button onclick="downloadLeadsCsv()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition flex items-center gap-1.5 border border-slate-700">
+              <i class="fa-solid fa-file-csv text-xs text-emerald-400"></i>
+              <span>Download CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Leads Table -->
+        <div id="leadsTableContainer" class="overflow-x-auto max-h-[500px] custom-scroll">
+          <p class="text-slate-500 text-center py-12 text-xs">Click "Scrape &amp; Enrich Leads" above or select a preset to discover target businesses.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: BULK CAMPAIGN & LEADS               -->
     <!-- ========================================== -->
     <div id="tabBulk" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
-      <!-- Left Column: Recipients Input -->
       <div class="lg:col-span-5 space-y-6">
         <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
           <div class="flex items-center justify-between mb-4">
@@ -160,7 +237,8 @@
             Enter target leads (format: <code class="text-blue-300">email, Name, Company</code> or one email per line):
           </p>
 
-          <textarea id="recipientsInput" rows="8" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 leading-relaxed" placeholder="alex@company.com, Alex Turner, Acme Systems&#10;sophia@agency.co, Sophia, Creative Labs&#10;contact@startup.io"></textarea>
+          <textarea id="recipientsInput" rows="8" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 leading-relaxed" placeholder="vasquezroof@yahoo.com, Vasquez, Vasquez Roofing
+thetorresmetalroofing@gmail.com, Torres, INVigorate Roofing"></textarea>
 
           <div class="flex items-center justify-between mt-3 text-xs">
             <button onclick="loadSampleLeads()" class="text-blue-400 hover:text-blue-300 transition">
@@ -177,7 +255,6 @@
           </div>
         </div>
 
-        <!-- History Summary Widget -->
         <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-sm font-semibold text-white flex items-center gap-2">
@@ -191,7 +268,6 @@
         </div>
       </div>
 
-      <!-- Right Column: Draft Previews -->
       <div class="lg:col-span-7 space-y-6">
         <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl min-h-[500px] flex flex-col">
           <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-4">
@@ -219,7 +295,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB 3: INBOX & SEARCH                      -->
+    <!-- TAB 4: INBOX & SEARCH                      -->
     <!-- ========================================== -->
     <div id="tabInbox" class="hidden flex-1 space-y-6">
       <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
@@ -239,7 +315,6 @@
           </button>
         </div>
 
-        <!-- Search Bar -->
         <div class="flex flex-wrap items-center gap-3 mb-6">
           <div class="flex-1 min-w-[260px] relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
@@ -259,7 +334,6 @@
           </button>
         </div>
 
-        <!-- Inbox Email Cards List -->
         <div id="inboxList" class="space-y-3 max-h-[620px] overflow-y-auto pr-1 custom-scroll">
           <p class="text-slate-500 text-center py-8 text-xs">Loading inbox messages...</p>
         </div>
@@ -270,28 +344,23 @@
   <script>
     let currentDrafts = [];
     let chatHistory = [];
+    let currentScrapedLeads = [];
 
     // Tab Switching
     function switchTab(tab) {
-      document.getElementById('tabChat').classList.add('hidden');
-      document.getElementById('tabBulk').classList.add('hidden');
-      document.getElementById('tabInbox').classList.add('hidden');
+      ['chat', 'leads', 'bulk', 'inbox'].forEach(t => {
+        const el = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+        const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (el) el.classList.add('hidden');
+        if (btn) btn.className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+      });
 
-      document.getElementById('tabBtnChat').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
-      document.getElementById('tabBtnBulk').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
-      document.getElementById('tabBtnInbox').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+      const activeEl = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+      const activeBtn = document.getElementById('tabBtn' + tab.charAt(0).toUpperCase() + tab.slice(1));
+      if (activeEl) activeEl.classList.remove('hidden');
+      if (activeBtn) activeBtn.className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
 
-      if (tab === 'chat') {
-        document.getElementById('tabChat').classList.remove('hidden');
-        document.getElementById('tabBtnChat').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
-      } else if (tab === 'bulk') {
-        document.getElementById('tabBulk').classList.remove('hidden');
-        document.getElementById('tabBtnBulk').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
-      } else if (tab === 'inbox') {
-        document.getElementById('tabInbox').classList.remove('hidden');
-        document.getElementById('tabBtnInbox').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
-        refreshInbox();
-      }
+      if (tab === 'inbox') refreshInbox();
     }
 
     // SMTP Status
@@ -329,6 +398,138 @@
     }
 
     // ----------------------------------------------------
+    // LEAD SCRAPER LOGIC
+    // ----------------------------------------------------
+    function setLeadPreset(type) {
+      if (type === 'roofers') {
+        document.getElementById('leadIndustry').value = "roofing contractors";
+        document.getElementById('leadLocation').value = "Dallas, TX";
+        document.getElementById('leadCount').value = 10;
+        document.getElementById('leadNoWebsite').checked = true;
+      } else if (type === 'it') {
+        document.getElementById('leadIndustry').value = "IT consulting software development agency";
+        document.getElementById('leadLocation').value = "Dallas, TX";
+        document.getElementById('leadCount').value = 10;
+        document.getElementById('leadNoWebsite').checked = false;
+      }
+    }
+
+    async function executeLeadScrape() {
+      const industry = document.getElementById('leadIndustry').value.trim();
+      const location = document.getElementById('leadLocation').value.trim();
+      const count = parseInt(document.getElementById('leadCount').value) || 10;
+      const noWebsite = document.getElementById('leadNoWebsite').checked;
+
+      const btn = document.getElementById('btnScrapeLeads');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Scraping Google Places...`;
+
+      const container = document.getElementById('leadsTableContainer');
+      container.innerHTML = `<p class="text-slate-400 text-center py-12 text-xs"><i class="fa-solid fa-spinner animate-spin mr-2"></i> Querying Serper Places in ${escapeHtml(location)} and enriching contacts...</p>`;
+
+      try {
+        const res = await fetch('/api/leads/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            industry: industry,
+            location: location,
+            count: count,
+            no_website_only: noWebsite
+          })
+        });
+        const data = await res.json();
+        currentScrapedLeads = data.leads || [];
+        renderScrapedLeadsTable();
+      } catch (e) {
+        container.innerHTML = `<p class="text-rose-400 text-center py-12 text-xs">Error scraping leads: ${e}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> <span>Scrape &amp; Enrich Leads</span>`;
+      }
+    }
+
+    function renderScrapedLeadsTable() {
+      const container = document.getElementById('leadsTableContainer');
+      const actionBtns = document.getElementById('leadActionButtons');
+
+      if (!currentScrapedLeads || !currentScrapedLeads.length) {
+        container.innerHTML = `<p class="text-slate-500 text-center py-12 text-xs">No matching businesses found.</p>`;
+        actionBtns.style.display = "none";
+        return;
+      }
+
+      actionBtns.style.display = "flex";
+
+      const rows = currentScrapedLeads.map((l, idx) => {
+        const webStr = l.has_website 
+          ? `<a href="${escapeHtml(l.website)}" target="_blank" class="text-blue-400 hover:underline truncate block max-w-[140px]">${escapeHtml(l.website)}</a>` 
+          : `<span class="text-rose-400 text-[11px] font-semibold"><i class="fa-solid fa-ban mr-1"></i> No Website</span>`;
+        const emailStr = l.email 
+          ? `<span class="text-amber-300 font-mono text-[11px] font-semibold">${escapeHtml(l.email)}</span>` 
+          : `<span class="text-slate-500 text-[11px] italic">Search in progress</span>`;
+
+        return `
+          <tr class="border-b border-slate-800/60 hover:bg-slate-900/40 text-xs">
+            <td class="py-2.5 px-3 text-slate-500 font-mono">${idx + 1}</td>
+            <td class="py-2.5 px-3 font-medium text-white">${escapeHtml(l.company)}</td>
+            <td class="py-2.5 px-3 text-slate-300 font-mono">${escapeHtml(l.phone)}</td>
+            <td class="py-2.5 px-3 text-slate-400 max-w-[200px] truncate">${escapeHtml(l.address)}</td>
+            <td class="py-2.5 px-3">${webStr}</td>
+            <td class="py-2.5 px-3">${emailStr}</td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-[11px] text-slate-400 uppercase tracking-wider bg-slate-900/60">
+              <th class="py-2.5 px-3">#</th>
+              <th class="py-2.5 px-3">Company</th>
+              <th class="py-2.5 px-3">Phone</th>
+              <th class="py-2.5 px-3">Address</th>
+              <th class="py-2.5 px-3">Website Status</th>
+              <th class="py-2.5 px-3">Found Email</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function transferLeadsToBulk() {
+      const withEmails = currentScrapedLeads.filter(l => l.email);
+      if (!withEmails.length) {
+        alert("None of the scraped leads currently have a verified email address yet.");
+        return;
+      }
+
+      const formatted = withEmails.map(l => `${l.email}, ${l.name || l.company.split(' ')[0]}, ${l.company}`).join('\n');
+      document.getElementById('recipientsInput').value = formatted;
+      updateRecipientCount();
+      switchTab('bulk');
+      alert(`Transferred ${withEmails.length} leads to Bulk Campaign! Click "Generate AI Drafts" to preview.`);
+    }
+
+    async function downloadLeadsCsv() {
+      if (!currentScrapedLeads.length) return;
+      try {
+        const res = await fetch('/api/leads/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leads: currentScrapedLeads, filename: "leads_export.csv" })
+        });
+        const data = await res.json();
+        alert(`Exported ${currentScrapedLeads.length} leads to: ${data.path}`);
+      } catch (e) {
+        alert("Error exporting: " + e);
+      }
+    }
+
+    // ----------------------------------------------------
     // CHAT COPILOT LOGIC
     // ----------------------------------------------------
     function usePrompt(text) {
@@ -343,7 +544,7 @@
             <i class="fa-solid fa-robot"></i>
           </div>
           <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300">
-            Chat cleared! How can I assist you with your emails today?
+            Chat cleared! How can I assist you today?
           </div>
         </div>
       `;
@@ -363,7 +564,6 @@
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i>`;
 
-      // Loading bubble
       const loadingId = "load_" + Date.now();
       appendLoadingBubble(loadingId);
 
@@ -413,7 +613,7 @@
         </div>
         <div class="bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-slate-400 flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
-          <span>Thinking &amp; analyzing emails...</span>
+          <span>Thinking, scraping &amp; analyzing...</span>
         </div>
       `;
       container.appendChild(msgDiv);
@@ -445,6 +645,18 @@
             <button onclick="dispatchChatDraft('${draftId}', '${escapeHtml(draft.to)}', '${escapeHtml(draft.subject)}', ${escapeHtml(JSON.stringify(draft.body_text))})" class="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition flex items-center justify-center gap-2 shadow-md">
               <i class="fa-solid fa-paper-plane text-xs"></i>
               <span>🚀 Send This Email Now</span>
+            </button>
+          </div>
+        `;
+      } else if (data.action === 'leads_scraped' && data.data && data.data.leads) {
+        currentScrapedLeads = data.data.leads;
+        extraContent = `
+          <div class="mt-3 pt-3 border-t border-slate-800 flex items-center gap-2">
+            <button onclick="transferLeadsToBulk()" class="py-2 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition flex items-center gap-1.5 shadow-md">
+              <i class="fa-solid fa-paper-plane text-xs"></i> Transfer to Outreach Campaign
+            </button>
+            <button onclick="switchTab('leads')" class="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
+              View Table in Lead Finder
             </button>
           </div>
         `;
@@ -548,7 +760,7 @@
       refreshInbox();
     }
 
-    function renderInboxItems(emails, customTitle = null) {
+    function renderInboxItems(emails) {
       const list = document.getElementById('inboxList');
       if (!emails || !emails.length) {
         list.innerHTML = `<p class="text-slate-500 text-center py-8 text-xs">No matching emails found.</p>`;
@@ -581,9 +793,9 @@
     // ----------------------------------------------------
     function loadSampleLeads() {
       document.getElementById('recipientsInput').value = 
-`alex.turner@acme.io, Alex Turner, Acme Systems
-sophia.lee@crestview.com, Sophia Lee, Crestview Design
-founder@brightfuture.org, David Miller, Bright Future`;
+`vasquezroof@yahoo.com, Vasquez, Vasquez Roofing
+thetorresmetalroofing@gmail.com, Torres, INVigorate Roofing
+acoroofing.gutters@gmail.com, ACO, ACO Roofing & Gutters`;
       updateRecipientCount();
     }
 
@@ -683,7 +895,7 @@ founder@brightfuture.org, David Miller, Bright Future`;
       const bodyText = document.getElementById(`body_${idx}`).value;
       const statusEl = document.getElementById(`status_${idx}`);
 
-      statusEl.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-spinner animate-spin mr-1"></i> Sending...</span>`;
+      statusEl.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-spinner animate-spin mr-1.5"></i> Sending...</span>`;
 
       try {
         const res = await fetch('/api/email/send', {

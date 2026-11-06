@@ -13,6 +13,7 @@ from src.email_sender import EmailSender
 from src.email_writer import generate_outreach_email
 from src.email_reader import EmailReader
 from src.email_chat_engine import EmailChatEngine
+from src.lead_scraper import LeadScraper
 
 app = FastAPI(title="Job Co-Pilot Bridge Server", version="1.0.0")
 
@@ -368,6 +369,42 @@ def search_inbox_emails(req: EmailSearchRequest):
             limit=req.limit
         )
         return {"success": True, "count": len(results), "results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class LeadScrapeRequest(BaseModel):
+    industry: str = "roofing contractors"
+    location: str = "Dallas, TX"
+    count: int = 10
+    no_website_only: bool = True
+
+class LeadExportRequest(BaseModel):
+    leads: List[Dict[str, Any]]
+    filename: Optional[str] = "scraped_leads.csv"
+
+@app.post("/api/leads/scrape")
+def api_scrape_leads(req: LeadScrapeRequest):
+    scraper = LeadScraper()
+    try:
+        if any(w in req.industry.lower() for w in ["it", "software", "tech", "agency", "consulting"]):
+            leads = scraper.find_it_companies(query=req.industry, location=req.location, count=req.count)
+        else:
+            leads = scraper.find_local_businesses(
+                industry=req.industry,
+                location=req.location,
+                count=req.count,
+                no_website_only=req.no_website_only
+            )
+        return {"success": True, "count": len(leads), "leads": leads}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/leads/export")
+def api_export_leads(req: LeadExportRequest):
+    scraper = LeadScraper()
+    try:
+        csv_path = scraper.export_to_csv(req.leads, req.filename or "scraped_leads.csv")
+        return {"success": True, "path": str(csv_path), "filename": csv_path.name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

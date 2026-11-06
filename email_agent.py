@@ -22,6 +22,7 @@ from src.email_sender import EmailSender
 from src.email_writer import generate_outreach_email
 from src.email_reader import EmailReader
 from src.email_chat_engine import EmailChatEngine
+from src.lead_scraper import LeadScraper
 
 console = Console()
 
@@ -265,6 +266,53 @@ def run_search_emails_cmd(query: str, limit: int = 6):
 
     console.print(table)
 
+def run_scrape_leads_cmd(industry: str, location: str, count: int, no_website_only: bool, export_path: Optional[str] = None):
+    """Scrape local businesses or IT agencies and export to CSV."""
+    scraper = LeadScraper()
+    console.print(Panel(
+        f"[bold cyan]🔍 AUTONOMOUS LEAD SCRAPER (SERPER GOOGLE PLACES)[/bold cyan]\n"
+        f"Target: [bold yellow]{industry}[/bold yellow] in [bold yellow]{location}[/bold yellow]\n"
+        f"Filter: [bold]{'Only businesses without a website' if no_website_only else 'All businesses'}[/bold]\n"
+        f"Goal: [bold]{count} leads[/bold]",
+        border_style="cyan"
+    ))
+
+    with console.status("[bold green]Scraping Google Places & enriching contact info...[/bold green]"):
+        if any(w in industry.lower() for w in ["it", "software", "tech", "agency", "consulting"]):
+            leads = scraper.find_it_companies(query=industry, location=location, count=count)
+            default_csv = "leads_it_agencies.csv"
+        else:
+            leads = scraper.find_local_businesses(industry=industry, location=location, count=count, no_website_only=no_website_only)
+            default_csv = "leads_dallas_roofers.csv"
+
+        csv_file = export_path or default_csv
+        out_csv = scraper.export_to_csv(leads, csv_file)
+
+    if not leads:
+        console.print("[yellow]No matching businesses found.[/yellow]")
+        return
+
+    table = Table(title=f"Discovered Leads ({len(leads)} found)", show_lines=True)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Company", style="bold green", width=28)
+    table.add_column("Phone", style="white", width=16)
+    table.add_column("Website", style="dim", width=18)
+    table.add_column("Found Email", style="bold yellow", width=28)
+
+    for i, l in enumerate(leads, 1):
+        web_str = "[red]None (Missing)[/red]" if not l.get("has_website") else l.get("website", "")[:18]
+        email_str = f"[bold yellow]{l.get('email')}[/bold yellow]" if l.get("email") else "[dim]Search in progress[/dim]"
+        table.add_row(str(i), l.get("company", ""), l.get("phone", ""), web_str, email_str)
+
+    console.print(table)
+    console.print(f"\n[bold green]📁 Successfully exported {len(leads)} leads to:[/bold green] [white]{out_csv}[/white]")
+
+    leads_with_email = [l for l in leads if l.get("email")]
+    if leads_with_email:
+        console.print(f"\n[cyan]Found [bold]{len(leads_with_email)}[/bold] leads with verified public email addresses.[/cyan]")
+        if Confirm.ask("[bold yellow]Would you like to preview outreach drafts for these leads?[/bold yellow]"):
+            run_dry_run(leads_with_email, EmailSender())
+
 def run_interactive_chat():
     """Start an interactive conversational assistant loop in the terminal."""
     engine = EmailChatEngine()
@@ -324,6 +372,12 @@ def main():
     parser.add_argument("--chat", action="store_true", help="Start interactive conversational email chat")
     parser.add_argument("--check-inbox", action="store_true", help="Check and display latest emails in inbox")
     parser.add_argument("--search", type=str, help="Search emails by sender, subject, or keyword")
+    parser.add_argument("--scrape", action="store_true", help="Scrape target businesses or agencies via Serper Google Places")
+    parser.add_argument("--industry", type=str, default="roofing contractors", help="Industry keyword (e.g. 'roofing contractors' or 'IT agency')")
+    parser.add_argument("--location", type=str, default="Dallas, TX", help="Location to search (e.g. 'Dallas, TX')")
+    parser.add_argument("--count", type=int, default=10, help="Number of leads to scrape")
+    parser.add_argument("--no-website", action="store_true", default=True, help="Only businesses without a website")
+    parser.add_argument("--export", type=str, help="Custom CSV filename for leads")
     parser.add_argument("--send", action="store_true", help="Send outreach emails (default is dry-run)")
     parser.add_argument("--dry-run", action="store_true", help="Preview generated emails without sending")
     parser.add_argument("--to", type=str, help="Target a single email address directly")
@@ -341,6 +395,16 @@ def main():
 
     if args.test_smtp:
         test_smtp_cmd(sender)
+        return
+
+    if args.scrape:
+        run_scrape_leads_cmd(
+            industry=args.industry,
+            location=args.location,
+            count=args.count,
+            no_website_only=args.no_website,
+            export_path=args.export
+        )
         return
 
     if args.chat:
