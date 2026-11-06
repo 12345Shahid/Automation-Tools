@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skool Outreach Assistant</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <span class="logo-icon">⚡</span>
+        <div>
+          <h1 class="logo-title">Skool Outreach</h1>
+          <p class="logo-sub">AI Community Assistant</p>
+        </div>
+      </div>
+      <div id="status-pill" class="pill pill-idle">Ready</div>
+    </header>
+
+    <!-- Live Page Stats -->
+    <section class="card stats-card">
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-label">Page Members</div>
+          <div class="stat-num" id="stat-total">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Eligible</div>
+          <div class="stat-num text-green" id="stat-eligible">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Admins Skipped</div>
+          <div class="stat-num text-red" id="stat-admins">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">In History</div>
+          <div class="stat-num text-blue" id="stat-history">0</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Outreach Message Template -->
+    <section class="card">
+      <div class="card-header">
+        <span class="card-title">Direct Message Template</span>
+        <button id="btn-preview-spintax" class="btn-text">🎲 Sample Preview</button>
+      </div>
+
+      <textarea id="msg-template" rows="3" class="template-box" placeholder="Write your outreach message with tags...">{Assalamu Alaikum|Salam} {first_name}! How are you brother?</textarea>
+
+      <div class="tag-pills">
+        <span class="tag-pill" data-tag="{first_name}">+ {first_name}</span>
+        <span class="tag-pill" data-tag="{name}">+ {name}</span>
+        <span class="tag-pill" data-tag="{Assalamu Alaikum|Salam}">+ Spintax</span>
+      </div>
+
+      <!-- Live Preview Container -->
+      <div id="spintax-preview-box" class="preview-box hidden">
+        <div class="preview-header">Sample Variation:</div>
+        <div id="spintax-preview-text" class="preview-text"></div>
+      </div>
+    </section>
+
+    <!-- Anti-Spam Safety Settings -->
+    <section class="card">
+      <div class="card-header">
+        <span class="card-title">Anti-Spam & Delay Controls</span>
+        <span class="badge-shield">🛡️ Active Shield</span>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label>Min Delay (sec)</label>
+          <input type="number" id="setting-min-delay" value="45" min="10" max="300">
+        </div>
+        <div class="form-group flex-1">
+          <label>Max Delay (sec)</label>
+          <input type="number" id="setting-max-delay" value="90" min="15" max="600">
+        </div>
+        <div class="form-group flex-1">
+          <label>Daily Limit</label>
+          <input type="number" id="setting-limit" value="25" min="1" max="100">
+        </div>
+      </div>
+
+      <div class="checkboxes">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-skip-admins" checked>
+          <span>Skip Admins, Moderators & Creators</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-dry-run">
+          <span>Safe Dry-Run Mode (Preview without sending)</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Campaign Controller Actions -->
+    <div class="action-footer">
+      <button id="btn-start" class="btn btn-primary btn-block">
+        ▶ Start Automated Campaign
+      </button>
+      <div id="running-controls" class="btn-group hidden">
+        <button id="btn-pause" class="btn btn-secondary flex-1">⏸ Pause</button>
+        <button id="btn-stop" class="btn btn-danger flex-1">⏹ Stop</button>
+      </div>
+    </div>
+
+    <!-- Footer Links -->
+    <div class="footer-links">
+      <button id="btn-clear-history" class="btn-link">Clear Messaged History</button>
+      <span>•</span>
+      <a href="http://127.0.0.1:8000/skool-test" target="_blank" class="btn-link">Open Local Test Community</a>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

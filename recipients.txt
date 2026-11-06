@@ -1,0 +1,19 @@
+# ==============================================================================
+# EMAIL RECIPIENTS LIST
+# ==============================================================================
+# You can enter email addresses in any of these convenient formats:
+# 1. Just the email:
+#    contact@example.com
+#
+# 2. Email with Name:
+#    john@innovate.co, John Doe
+#
+# 3. Email with Name and Company:
+#    sarah@apexdesign.org, Sarah Connor, Apex Design
+#
+# Lines starting with # are ignored.
+# ==============================================================================
+
+# Add your target email addresses below:
+test.lead1@example.com, Mark Roberts, TechSphere
+test.lead2@example.com, Emily Watson, Watson Consulting

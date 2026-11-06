@@ -1,0 +1,89 @@
+{
+  "personal": {
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "full_name": "Jane Doe",
+    "email": "jane.doe@example.com",
+    "phone": "+1 (555) 019-2834",
+    "address": "123 Market Street",
+    "city": "San Francisco",
+    "state": "California",
+    "postal_code": "94105",
+    "country": "United States"
+  },
+  "socials": {
+    "linkedin": "https://www.linkedin.com/in/janedoe-sample",
+    "github": "https://github.com/janedoe-sample",
+    "portfolio": "https://janedoe.dev",
+    "twitter": "https://x.com/janedoe"
+  },
+  "work_authorization": {
+    "legally_authorized_to_work": "Yes",
+    "requires_sponsorship": "No",
+    "will_require_sponsorship_future": "No",
+    "us_citizenship_or_permanent_resident": "Yes",
+    "visa_type": "Citizen / Permanent Resident"
+  },
+  "experience_and_preferences": {
+    "current_title": "Senior Full-Stack Engineer",
+    "current_company": "Acme Innovations Inc.",
+    "company_name": "Acme Innovations Inc.",
+    "current_start_date": "2020-11-01",
+    "current_start_date_formatted": "November 01, 2020",
+    "currently_work_here": true,
+    "total_years_experience": 6,
+    "desired_salary_usd": "165,000",
+    "salary_range_min": "150,000",
+    "salary_range_max": "180,000",
+    "notice_period": "2 weeks",
+    "willing_to_relocate": "No",
+    "open_to_remote": "Yes",
+    "primary_skills": [
+      "Python",
+      "TypeScript",
+      "React",
+      "Node.js",
+      "PostgreSQL",
+      "FastAPI",
+      "Docker",
+      "AWS"
+    ]
+  },
+  "work_history": [
+    {
+      "designation": "Senior Full-Stack Engineer",
+      "title": "Senior Full-Stack Engineer",
+      "company": "Acme Innovations Inc.",
+      "company_name": "Acme Innovations Inc.",
+      "start_date": "2020-11-01",
+      "start_date_formatted": "November 01, 2020",
+      "end_date": "Present",
+      "currently_work_here": true,
+      "summary": "Results-oriented Senior Full-Stack Engineer with 6+ years building scalable web applications, distributed microservices, and AI-enabled workflows."
+    }
+  ],
+  "education": {
+    "degree": "Bachelor of Science",
+    "field_of_study": "Computer Science",
+    "school": "University of California, Berkeley",
+    "institution": "University of California, Berkeley",
+    "start_date": "2015-08-20",
+    "start_date_formatted": "August 20, 2015",
+    "start_year": "2015",
+    "start_month": "August",
+    "end_date": "2019-05-15",
+    "end_date_formatted": "May 15, 2019",
+    "graduation_year": "2019",
+    "graduation_month": "May",
+    "gpa": "3.8",
+    "currently_pursuing": false
+  },
+  "screening_defaults": {
+    "summary_elevator_pitch": "Results-oriented Senior Full-Stack Engineer with 6+ years building scalable web applications, distributed microservices, and AI-enabled workflows.",
+    "gender": "Prefer not to disclose",
+    "race_ethnicity": "Decline to state",
+    "veteran_status": "I am not a protected veteran",
+    "disability_status": "No, I do not have a disability"
+  },
+  "resume_file_path": "data/resumes/sample_resume.pdf"
+}

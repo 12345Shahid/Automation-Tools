@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Skool Outreach Assistant: AI Community Messenger",
+  "version": "1.0.0",
+  "description": "Safe, personalized community messaging for Skool. Features randomized delays, Spintax variation, admin shields, and deduplication.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.skool.com/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Open Skool Outreach Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.skool.com/*",
+        "http://127.0.0.1:8000/skool-test*",
+        "http://localhost:8000/skool-test*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

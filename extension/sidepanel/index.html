@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Co-Pilot</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <span class="logo-icon">⚡</span>
+        <div>
+          <h1 class="logo-title">Job Co-Pilot</h1>
+          <p class="logo-sub">AI Application Assistant</p>
+        </div>
+      </div>
+      <div id="backend-status" class="status-badge status-offline" title="Local Python Bridge Server status">
+        Bridge: Offline
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-apply">
+        <span>⚡</span> Apply
+      </button>
+      <button class="tab-btn" data-tab="tab-search">
+        <span>🔍</span> Discover
+      </button>
+      <button class="tab-btn" data-tab="tab-profile">
+        <span>👤</span> Profile
+      </button>
+    </nav>
+
+    <!-- Tab 1: Apply / Co-Pilot -->
+    <main id="tab-apply" class="tab-content active">
+      <div class="card page-card">
+        <div class="card-header">
+          <span class="card-title">Active Page</span>
+          <button id="btn-scan" class="btn btn-secondary btn-sm">Scan DOM</button>
+        </div>
+        <div id="page-title" class="page-title-text">Detecting active page...</div>
+        <div id="field-count-badge" class="badge badge-muted">Scanning fields...</div>
+      </div>
+
+      <div class="action-section">
+        <button id="btn-autofill" class="btn btn-primary btn-block" disabled>
+          <span>✨</span> Auto-Fill with AI
+        </button>
+        <p class="safety-note">🔒 <strong>Safety Rule:</strong> Never auto-submits. Pauses for your visual check.</p>
+      </div>
+
+      <!-- Preview Section -->
+      <div class="card preview-card">
+        <div class="card-header">
+          <span class="card-title">Form Mapping Preview</span>
+          <span id="match-status" class="status-text">Ready</span>
+        </div>
+        <div id="fields-list" class="fields-list">
+          <div class="empty-state">
+            <p>Navigate to any job application (LinkedIn Easy Apply, Greenhouse, Lever, Workday) and click <strong>Scan DOM</strong>.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Tab 2: Job Discovery (JobSpy) -->
+    <main id="tab-search" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Instant Job Search</span>
+          <span class="tag tag-blue">Zero Token Cost</span>
+        </div>
+        <div class="form-group">
+          <label>Role / Keywords</label>
+          <input type="text" id="search-query" placeholder="e.g. Senior Frontend Engineer" value="Senior Software Engineer">
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Location</label>
+            <input type="text" id="search-location" placeholder="e.g. Remote" value="Remote">
+          </div>
+          <div class="form-group" style="width: 80px;">
+            <label>Limit</label>
+            <input type="number" id="search-limit" value="5" min="1" max="25">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Country</label>
+            <select id="search-country">
+              <option value="usa" selected>United States (USA)</option>
+              <option value="uk">United Kingdom (UK)</option>
+              <option value="canada">Canada</option>
+              <option value="germany">Germany</option>
+              <option value="australia">Australia</option>
+              <option value="india">India</option>
+              <option value="france">France</option>
+              <option value="netherlands">Netherlands</option>
+              <option value="singapore">Singapore</option>
+              <option value="united arab emirates">UAE</option>
+              <option value="switzerland">Switzerland</option>
+              <option value="ireland">Ireland</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label>Job Type</label>
+            <select id="search-job-type">
+              <option value="fulltime" selected>Full-time</option>
+              <option value="contract">Contract</option>
+              <option value="parttime">Part-time</option>
+              <option value="internship">Internship</option>
+              <option value="any">Any Type</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Platforms</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="site-linkedin" checked> LinkedIn</label>
+            <label><input type="checkbox" id="site-indeed" checked> Indeed</label>
+            <label><input type="checkbox" id="site-glassdoor"> Glassdoor</label>
+          </div>
+        </div>
+        <button id="btn-search-jobs" class="btn btn-primary btn-block">
+          <span>🔍</span> Search Jobs
+        </button>
+      </div>
+
+      <div id="search-results" class="search-results-list">
+        <!-- Results populated dynamically -->
+      </div>
+    </main>
+
+    <!-- Tab 3: Profile & Settings -->
+    <main id="tab-profile" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">AI Engine Settings</span>
+        </div>
+        <div class="form-group">
+          <label>LLM Engine Mode</label>
+          <select id="setting-llm-mode">
+            <option value="bridge">Kie.ai DeepSeek (via Local Bridge - Recommended)</option>
+            <option value="direct-gemini">Direct Gemini 2.0 Flash</option>
+            <option value="direct-openai">Direct OpenAI (GPT-4o-mini)</option>
+          </select>
+        </div>
+        <div id="direct-api-group" class="form-group" style="display: none;">
+          <label id="lbl-api-key">API Key</label>
+          <input type="password" id="setting-api-key" placeholder="Enter API key...">
+          <button id="btn-save-key" class="btn btn-secondary btn-sm" style="margin-top: 6px;">Save Key</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Candidate Profile</span>
+          <button id="btn-sync-profile" class="btn btn-secondary btn-sm">Sync from Local</button>
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="prof-name">
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Email</label>
+            <input type="email" id="prof-email">
+          </div>
+          <div class="form-group flex-1">
+            <label>Phone</label>
+            <input type="text" id="prof-phone">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>LinkedIn URL</label>
+          <input type="text" id="prof-linkedin">
+        </div>
+        <div class="form-group">
+          <label>GitHub URL</label>
+          <input type="text" id="prof-github">
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Desired Salary ($)</label>
+            <input type="text" id="prof-salary">
+          </div>
+          <div class="form-group flex-1">
+            <label>Notice Period</label>
+            <input type="text" id="prof-notice">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Work Auth (Sponsorship required?)</label>
+          <select id="prof-sponsorship">
+            <option value="No">No (Authorized / Citizen)</option>
+            <option value="Yes">Yes (Requires sponsorship)</option>
+          </select>
+        </div>
+        <button id="btn-save-profile" class="btn btn-primary btn-block">Save Candidate Profile</button>
+      </div>
+    </main>
+
+    <!-- Footer Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

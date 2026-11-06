@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Email Outreach &amp; Inbox Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-robot text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Autonomous Email Agent
+            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Chat &amp; Outreach</span>
+          </h1>
+          <p class="text-xs text-slate-400">Conversational AI Dispatcher, Gmail Inbox Reader &amp; Search</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+        <button id="tabBtnChat" onclick="switchTab('chat')" class="px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm">
+          <i class="fa-solid fa-comments"></i> AI Chat Copilot
+        </button>
+        <button id="tabBtnBulk" onclick="switchTab('bulk')" class="px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-users"></i> Bulk Campaign
+        </button>
+        <button id="tabBtnInbox" onclick="switchTab('inbox')" class="px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-inbox"></i> Inbox &amp; Search
+        </button>
+      </nav>
+
+      <!-- SMTP Status Badge -->
+      <div class="flex items-center gap-2.5">
+        <div id="smtpBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="smtpStatusText">Connected</span>
+        </div>
+        <button onclick="testSmtp()" title="Verify Connection" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg border border-slate-700 transition">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="max-w-7xl mx-auto px-6 py-6 flex-1 w-full flex flex-col">
+    <!-- Active Offer Banner -->
+    <div class="mb-6 p-3.5 rounded-xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-900 border border-blue-900/40 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex items-center gap-2.5">
+        <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold font-mono uppercase tracking-wider text-[10px]">Offer Context</span>
+        <span class="text-slate-300 font-medium">Offering 1 custom website build for <strong class="text-emerald-400">$1</strong> in exchange for a review/testimonial.</span>
+      </div>
+      <div class="text-slate-400">
+        Account: <span class="text-white font-medium" id="senderEmail">shahidhasanpollob@gmail.com</span>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 1: AI CHAT COPILOT                     -->
+    <!-- ========================================== -->
+    <div id="tabChat" class="flex-1 flex flex-col space-y-4">
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl flex-1 flex flex-col shadow-2xl overflow-hidden min-h-[580px]">
+        <!-- Chat Header -->
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-semibold text-white">Interactive Email Copilot</h2>
+              <p class="text-xs text-slate-400">Chat in plain English to send cold outreach, check inbox, or search past emails</p>
+            </div>
+          </div>
+          <button onclick="clearChatHistory()" class="text-xs text-slate-500 hover:text-slate-300 transition">
+            <i class="fa-solid fa-trash-can mr-1"></i> Clear Chat
+          </button>
+        </div>
+
+        <!-- Chat Message Area -->
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scroll max-h-[500px]">
+          <!-- Welcome Bubble -->
+          <div class="flex items-start gap-3 max-w-2xl">
+            <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-md">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-sm text-xs leading-relaxed text-slate-200 space-y-2">
+              <p class="font-medium text-white">Hello Shahid! 👋 I am your autonomous email agent.</p>
+              <p>You can talk to me directly. Try asking things like:</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button onclick="usePrompt('Email alex@acme.com and tell him I can build a website for $1')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-blue-300 transition text-[11px]">
+                  ✍️ "Email alex@acme.com..."
+                </button>
+                <button onclick="usePrompt('Check my last 5 emails')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-emerald-300 transition text-[11px]">
+                  📬 "Check my last 5 emails"
+                </button>
+                <button onclick="usePrompt('Find emails from google')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-300 transition text-[11px]">
+                  🔍 "Find emails from google"
+                </button>
+                <button onclick="usePrompt('Search emails about review offer')" class="p-2 text-left rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-indigo-300 transition text-[11px]">
+                  🔎 "Search emails about review offer"
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div class="p-4 border-t border-slate-800 bg-slate-950/80">
+          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-3">
+            <input 
+              type="text" 
+              id="chatInput" 
+              placeholder="e.g. Email founder@innovate.co and offer $1 website, or 'check my inbox'..." 
+              class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              autocomplete="off"
+            />
+            <button 
+              type="submit" 
+              id="btnChatSend" 
+              class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/20 transition flex items-center gap-2 flex-shrink-0"
+            >
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>Send</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: BULK CAMPAIGN & LEADS               -->
+    <!-- ========================================== -->
+    <div id="tabBulk" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <!-- Left Column: Recipients Input -->
+      <div class="lg:col-span-5 space-y-6">
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-users text-blue-400"></i> Target Recipients
+            </h3>
+            <span id="recipientCount" class="text-xs font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded">0 leads</span>
+          </div>
+
+          <p class="text-xs text-slate-400 mb-3">
+            Enter target leads (format: <code class="text-blue-300">email, Name, Company</code> or one email per line):
+          </p>
+
+          <textarea id="recipientsInput" rows="8" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 leading-relaxed" placeholder="alex@company.com, Alex Turner, Acme Systems&#10;sophia@agency.co, Sophia, Creative Labs&#10;contact@startup.io"></textarea>
+
+          <div class="flex items-center justify-between mt-3 text-xs">
+            <button onclick="loadSampleLeads()" class="text-blue-400 hover:text-blue-300 transition">
+              <i class="fa-solid fa-file-import mr-1"></i> Load Sample Leads
+            </button>
+            <button onclick="clearLeads()" class="text-slate-500 hover:text-slate-400 transition">Clear</button>
+          </div>
+
+          <div class="mt-5 pt-5 border-t border-slate-800">
+            <button id="btnGenerate" onclick="generatePreviews()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-sm shadow-lg shadow-blue-600/25 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Generate AI Drafts</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- History Summary Widget -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Recent Sent History
+            </h3>
+            <button onclick="loadHistory()" class="text-xs text-blue-400 hover:underline">Refresh</button>
+          </div>
+          <div id="historyList" class="space-y-2 max-h-56 overflow-y-auto text-xs pr-1 custom-scroll">
+            <p class="text-slate-500 text-center py-4">Loading history...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Draft Previews -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl min-h-[500px] flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-4">
+            <div>
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i class="fa-solid fa-envelope-open-text text-indigo-400"></i> Draft Previews &amp; Dispatch
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5" id="draftsSummaryText">No drafts generated yet.</p>
+            </div>
+            <button id="btnSendAll" onclick="sendAllDrafts()" style="display: none;" class="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-lg shadow-emerald-600/20 transition flex items-center gap-2">
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>Send All Unsent</span>
+            </button>
+          </div>
+
+          <div id="draftsContainer" class="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1 custom-scroll">
+            <div class="h-64 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-800/80 rounded-xl text-slate-500">
+              <i class="fa-regular fa-envelope text-4xl mb-3 text-slate-600"></i>
+              <p class="text-sm font-medium text-slate-400">Draft previews will appear here</p>
+              <p class="text-xs text-slate-600 mt-1">Paste recipients on the left and click Generate AI Drafts.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: INBOX & SEARCH                      -->
+    <!-- ========================================== -->
+    <div id="tabInbox" class="hidden flex-1 space-y-6">
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+              <i class="fa-solid fa-inbox text-base"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-white">Gmail Live Inbox Explorer</h3>
+              <p class="text-xs text-slate-400">Read recent emails and search by sender, subject, or message body</p>
+            </div>
+          </div>
+
+          <button onclick="refreshInbox()" class="text-xs bg-slate-900 hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-800 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate text-xs"></i> Refresh Inbox
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <div class="flex-1 min-w-[260px] relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+            <input 
+              type="text" 
+              id="inboxSearchInput" 
+              placeholder="Search by sender (e.g. google), subject, or keyword in body..." 
+              class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              onkeydown="if(event.key === 'Enter') executeInboxSearch()"
+            />
+          </div>
+          <button onclick="executeInboxSearch()" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition flex items-center gap-1.5">
+            <span>Search</span>
+          </button>
+          <button onclick="clearInboxSearch()" class="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs transition">
+            Clear
+          </button>
+        </div>
+
+        <!-- Inbox Email Cards List -->
+        <div id="inboxList" class="space-y-3 max-h-[620px] overflow-y-auto pr-1 custom-scroll">
+          <p class="text-slate-500 text-center py-8 text-xs">Loading inbox messages...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentDrafts = [];
+    let chatHistory = [];
+
+    // Tab Switching
+    function switchTab(tab) {
+      document.getElementById('tabChat').classList.add('hidden');
+      document.getElementById('tabBulk').classList.add('hidden');
+      document.getElementById('tabInbox').classList.add('hidden');
+
+      document.getElementById('tabBtnChat').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+      document.getElementById('tabBtnBulk').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+      document.getElementById('tabBtnInbox').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+
+      if (tab === 'chat') {
+        document.getElementById('tabChat').classList.remove('hidden');
+        document.getElementById('tabBtnChat').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
+      } else if (tab === 'bulk') {
+        document.getElementById('tabBulk').classList.remove('hidden');
+        document.getElementById('tabBtnBulk').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
+      } else if (tab === 'inbox') {
+        document.getElementById('tabInbox').classList.remove('hidden');
+        document.getElementById('tabBtnInbox').className = "px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm";
+        refreshInbox();
+      }
+    }
+
+    // SMTP Status
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/email/status');
+        const data = await res.json();
+        if (data.sender_email) document.getElementById('senderEmail').innerText = data.sender_email;
+
+        const badge = document.getElementById('smtpBadge');
+        const text = document.getElementById('smtpStatusText');
+        if (data.smtp_ok) {
+          badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium";
+          text.innerText = `Connected (${data.sender_email})`;
+        } else {
+          badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium";
+          text.innerText = "SMTP Auth Issue";
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function testSmtp() {
+      const text = document.getElementById('smtpStatusText');
+      text.innerText = "Testing...";
+      try {
+        const res = await fetch('/api/email/test-smtp', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || (data.success ? "SMTP Connected Successfully!" : "Connection Failed"));
+        checkStatus();
+      } catch (e) {
+        alert("Error testing SMTP: " + e);
+      }
+    }
+
+    // ----------------------------------------------------
+    // CHAT COPILOT LOGIC
+    // ----------------------------------------------------
+    function usePrompt(text) {
+      document.getElementById('chatInput').value = text;
+      document.getElementById('chatInput').focus();
+    }
+
+    function clearChatHistory() {
+      document.getElementById('chatMessages').innerHTML = `
+        <div class="flex items-start gap-3 max-w-2xl">
+          <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs flex-shrink-0">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300">
+            Chat cleared! How can I assist you with your emails today?
+          </div>
+        </div>
+      `;
+      chatHistory = [];
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      appendUserMessage(message);
+      input.value = "";
+
+      const btn = document.getElementById('btnChatSend');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i>`;
+
+      // Loading bubble
+      const loadingId = "load_" + Date.now();
+      appendLoadingBubble(loadingId);
+
+      try {
+        const res = await fetch('/api/email/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: message, history: chatHistory })
+        });
+        const data = await res.json();
+        removeLoadingBubble(loadingId);
+        appendAgentResponse(data);
+      } catch (err) {
+        removeLoadingBubble(loadingId);
+        appendErrorMessage("Error connecting to server: " + err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>Send</span>`;
+        input.focus();
+      }
+    }
+
+    function appendUserMessage(text) {
+      const container = document.getElementById('chatMessages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex items-start justify-end gap-3";
+      msgDiv.innerHTML = `
+        <div class="bg-blue-600 text-white px-4 py-3 rounded-2xl rounded-tr-sm text-xs leading-relaxed max-w-xl shadow-md">
+          ${escapeHtml(text)}
+        </div>
+        <div class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-xs flex-shrink-0 border border-slate-700">
+          <i class="fa-solid fa-user"></i>
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function appendLoadingBubble(id) {
+      const container = document.getElementById('chatMessages');
+      const msgDiv = document.createElement('div');
+      msgDiv.id = id;
+      msgDiv.className = "flex items-start gap-3 max-w-xl";
+      msgDiv.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs flex-shrink-0">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs text-slate-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
+          <span>Thinking &amp; analyzing emails...</span>
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function removeLoadingBubble(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    function appendAgentResponse(data) {
+      const container = document.getElementById('chatMessages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex items-start gap-3 max-w-3xl";
+
+      const formattedHtml = marked.parse(data.response || "");
+
+      let extraContent = "";
+      if (data.action === 'draft_created' && data.data) {
+        const draft = data.data;
+        const draftId = "chat_draft_" + Date.now();
+        extraContent = `
+          <div id="${draftId}" class="mt-3 p-3.5 rounded-xl bg-slate-950 border border-blue-500/30 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-blue-400"><i class="fa-solid fa-envelope mr-1"></i> Ready To Dispatch</span>
+              <span class="text-[11px] text-slate-400 font-mono">${escapeHtml(draft.to)}</span>
+            </div>
+            <button onclick="dispatchChatDraft('${draftId}', '${escapeHtml(draft.to)}', '${escapeHtml(draft.subject)}', ${escapeHtml(JSON.stringify(draft.body_text))})" class="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition flex items-center justify-center gap-2 shadow-md">
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+              <span>🚀 Send This Email Now</span>
+            </button>
+          </div>
+        `;
+      }
+
+      msgDiv.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-md">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl rounded-tl-sm text-xs leading-relaxed text-slate-200 max-w-2xl shadow-md space-y-2">
+          <div class="prose prose-invert prose-xs">${formattedHtml}</div>
+          ${extraContent}
+        </div>
+      `;
+
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function dispatchChatDraft(cardId, email, subject, bodyText) {
+      const card = document.getElementById(cardId);
+      card.innerHTML = `<span class="text-blue-400 text-xs"><i class="fa-solid fa-spinner animate-spin mr-1.5"></i> Sending to ${escapeHtml(email)}...</span>`;
+
+      try {
+        const res = await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [{ email: email, subject: subject, body_text: bodyText, force: true }]
+          })
+        });
+        const result = await res.json();
+        if (result.sent > 0) {
+          card.innerHTML = `
+            <div class="text-emerald-400 font-medium text-xs flex items-center gap-2">
+              <i class="fa-solid fa-circle-check text-sm"></i>
+              <span>Successfully sent to <strong>${escapeHtml(email)}</strong>!</span>
+            </div>
+          `;
+          loadHistory();
+        } else {
+          card.innerHTML = `<span class="text-rose-400 text-xs">Failed to send: ${result.details[0]?.error || 'Unknown error'}</span>`;
+        }
+      } catch (e) {
+        card.innerHTML = `<span class="text-rose-400 text-xs">Error: ${e}</span>`;
+      }
+    }
+
+    function appendErrorMessage(text) {
+      const container = document.getElementById('chatMessages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex items-start gap-3 max-w-xl";
+      msgDiv.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs flex-shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="bg-rose-950/40 border border-rose-900/50 p-3.5 rounded-2xl text-xs text-rose-300">
+          ${escapeHtml(text)}
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // ----------------------------------------------------
+    // INBOX EXPLORER LOGIC
+    // ----------------------------------------------------
+    async function refreshInbox() {
+      const list = document.getElementById('inboxList');
+      list.innerHTML = `<p class="text-slate-500 text-center py-8 text-xs"><i class="fa-solid fa-spinner animate-spin mr-2"></i> Fetching inbox...</p>`;
+      try {
+        const res = await fetch('/api/email/inbox?limit=10');
+        const data = await res.json();
+        renderInboxItems(data.emails || []);
+      } catch (e) {
+        list.innerHTML = `<p class="text-rose-400 text-center py-8 text-xs">Error loading inbox: ${e}</p>`;
+      }
+    }
+
+    async function executeInboxSearch() {
+      const query = document.getElementById('inboxSearchInput').value.trim();
+      if (!query) return;
+
+      const list = document.getElementById('inboxList');
+      list.innerHTML = `<p class="text-slate-500 text-center py-8 text-xs"><i class="fa-solid fa-spinner animate-spin mr-2"></i> Searching for "${escapeHtml(query)}"...</p>`;
+      try {
+        const res = await fetch('/api/email/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: query, limit: 12 })
+        });
+        const data = await res.json();
+        renderInboxItems(data.results || [], `Search Results for "${query}"`);
+      } catch (e) {
+        list.innerHTML = `<p class="text-rose-400 text-center py-8 text-xs">Error searching inbox: ${e}</p>`;
+      }
+    }
+
+    function clearInboxSearch() {
+      document.getElementById('inboxSearchInput').value = "";
+      refreshInbox();
+    }
+
+    function renderInboxItems(emails, customTitle = null) {
+      const list = document.getElementById('inboxList');
+      if (!emails || !emails.length) {
+        list.innerHTML = `<p class="text-slate-500 text-center py-8 text-xs">No matching emails found.</p>`;
+        return;
+      }
+
+      list.innerHTML = emails.map((em, idx) => `
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <div class="truncate">
+              <span class="text-xs font-semibold text-white mr-2">${escapeHtml(em.from_email || em.from)}</span>
+              <span class="text-[11px] text-slate-500">${escapeHtml(em.date ? em.date.split(' +')[0].split(' -')[0] : '')}</span>
+            </div>
+            <span class="text-[10px] bg-slate-800 text-slate-400 font-mono px-1.5 py-0.5 rounded">#${em.id || idx+1}</span>
+          </div>
+          <div class="text-xs font-medium text-yellow-300">${escapeHtml(em.subject || '(No Subject)')}</div>
+          <p class="text-xs text-slate-300 leading-relaxed font-sans">${escapeHtml(em.snippet || '')}</p>
+          ${em.body ? `
+            <details class="text-[11px] text-slate-500 cursor-pointer pt-1">
+              <summary class="hover:text-slate-300">View Full Message Body</summary>
+              <pre class="mt-2 p-3 rounded-lg bg-slate-950 text-slate-300 whitespace-pre-wrap font-mono text-[11px] border border-slate-800">${escapeHtml(em.body)}</pre>
+            </details>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    // ----------------------------------------------------
+    // BULK OUTREACH LOGIC
+    // ----------------------------------------------------
+    function loadSampleLeads() {
+      document.getElementById('recipientsInput').value = 
+`alex.turner@acme.io, Alex Turner, Acme Systems
+sophia.lee@crestview.com, Sophia Lee, Crestview Design
+founder@brightfuture.org, David Miller, Bright Future`;
+      updateRecipientCount();
+    }
+
+    function clearLeads() {
+      document.getElementById('recipientsInput').value = "";
+      updateRecipientCount();
+    }
+
+    function updateRecipientCount() {
+      const lines = document.getElementById('recipientsInput').value.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+      document.getElementById('recipientCount').innerText = `${lines.length} lead${lines.length === 1 ? '' : 's'}`;
+    }
+
+    document.getElementById('recipientsInput').addEventListener('input', updateRecipientCount);
+
+    async function generatePreviews() {
+      const rawText = document.getElementById('recipientsInput').value;
+      if (!rawText.trim()) {
+        alert("Please enter at least one recipient email.");
+        return;
+      }
+
+      const btn = document.getElementById('btnGenerate');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Generating Drafts...`;
+
+      try {
+        const res = await fetch('/api/email/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raw_text: rawText })
+        });
+        const data = await res.json();
+        currentDrafts = data.drafts || [];
+        renderDrafts();
+      } catch (e) {
+        alert("Error generating drafts: " + e);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> <span>Generate AI Drafts</span>`;
+      }
+    }
+
+    function renderDrafts() {
+      const container = document.getElementById('draftsContainer');
+      const summaryText = document.getElementById('draftsSummaryText');
+      const btnSendAll = document.getElementById('btnSendAll');
+
+      if (!currentDrafts.length) {
+        summaryText.innerText = "No leads detected.";
+        btnSendAll.style.display = "none";
+        return;
+      }
+
+      const unsent = currentDrafts.filter(d => !d.already_sent);
+      summaryText.innerText = `${currentDrafts.length} drafts generated (${unsent.length} ready to send).`;
+      btnSendAll.style.display = unsent.length > 0 ? "flex" : "none";
+
+      container.innerHTML = currentDrafts.map((draft, idx) => `
+        <div class="p-4 rounded-xl border ${draft.already_sent ? 'border-slate-800 bg-slate-900/40 opacity-75' : 'border-slate-800 bg-slate-900'} space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-300 text-xs flex items-center justify-center font-mono font-bold">${idx + 1}</span>
+              <span class="text-sm font-semibold text-white">${escapeHtml(draft.email)}</span>
+              ${draft.name ? `<span class="text-xs text-slate-400 font-normal">(${escapeHtml(draft.name)}${draft.company ? ' · ' + escapeHtml(draft.company) : ''})</span>` : ''}
+            </div>
+            ${draft.already_sent 
+              ? `<span class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Already Sent</span>`
+              : `<span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full"><i class="fa-solid fa-check mr-1"></i> Ready</span>`
+            }
+          </div>
+
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block mb-1">Subject</label>
+            <input type="text" id="subj_${idx}" value="${escapeHtml(draft.subject)}" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-yellow-300 font-medium focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block mb-1">Email Body</label>
+            <textarea id="body_${idx}" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono leading-relaxed">${escapeHtml(draft.body_text)}</textarea>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-xs text-slate-500" id="status_${idx}"></span>
+            <button onclick="sendSingleDraft(${idx})" class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition flex items-center gap-1.5">
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+              Send To ${escapeHtml(draft.name || 'Lead')}
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function sendSingleDraft(idx) {
+      const draft = currentDrafts[idx];
+      const subject = document.getElementById(`subj_${idx}`).value;
+      const bodyText = document.getElementById(`body_${idx}`).value;
+      const statusEl = document.getElementById(`status_${idx}`);
+
+      statusEl.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-spinner animate-spin mr-1"></i> Sending...</span>`;
+
+      try {
+        const res = await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [{ email: draft.email, subject: subject, body_text: bodyText, force: true }]
+          })
+        });
+        const result = await res.json();
+        if (result.sent > 0) {
+          statusEl.innerHTML = `<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check mr-1"></i> Sent!</span>`;
+          draft.already_sent = true;
+          loadHistory();
+        } else {
+          statusEl.innerHTML = `<span class="text-rose-400">Failed: ${result.details[0]?.error || 'Error'}</span>`;
+        }
+      } catch (e) {
+        statusEl.innerHTML = `<span class="text-rose-400">Error sending: ${e}</span>`;
+      }
+    }
+
+    async function sendAllDrafts() {
+      const unsentIndices = currentDrafts.map((d, i) => (!d.already_sent ? i : -1)).filter(i => i !== -1);
+      if (!unsentIndices.length) {
+        alert("All leads have already been sent!");
+        return;
+      }
+
+      if (!confirm(`Are you ready to send emails to ${unsentIndices.length} recipient(s) with safety delay?`)) {
+        return;
+      }
+
+      const btn = document.getElementById('btnSendAll');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Dispatching...`;
+
+      for (const idx of unsentIndices) {
+        await sendSingleDraft(idx);
+        await new Promise(r => setTimeout(r, 4000));
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>Send All Unsent</span>`;
+      renderDrafts();
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/email/history');
+        const data = await res.json();
+        const list = document.getElementById('historyList');
+        if (!data || !data.length) {
+          list.innerHTML = `<p class="text-slate-500 text-center py-4">No emails sent yet.</p>`;
+          return;
+        }
+
+        const reversed = [...data].reverse().slice(0, 8);
+        list.innerHTML = reversed.map(item => `
+          <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 flex items-center justify-between text-xs">
+            <div class="truncate mr-2">
+              <div class="font-medium text-slate-200 truncate">${escapeHtml(item.to)}</div>
+              <div class="text-[11px] text-slate-500 truncate">${escapeHtml(item.subject)}</div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-mono ${item.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">${item.status}</span>
+              <div class="text-[10px] text-slate-500 mt-0.5">${new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Init
+    checkStatus();
+    loadHistory();
+    updateRecipientCount();
+  </script>
+</body>
+</html>

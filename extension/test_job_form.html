@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Application & Live DOM Activity Inspector</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #ffffff;
+      --panel-bg: #1e293b;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --accent: #10b981;
+      --border: #e2e8f0;
+      --code-bg: #090d16;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f8fafc;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation Banner */
+    .top-banner {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .top-banner h2 {
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .top-banner .badge {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #059669;
+      color: white;
+      font-weight: 600;
+    }
+    .top-links {
+      font-size: 13px;
+      display: flex;
+      gap: 16px;
+    }
+    .top-links a {
+      color: #93c5fd;
+      text-decoration: none;
+    }
+    .top-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Main Split Layout */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1fr 480px;
+      gap: 24px;
+      padding: 24px;
+      max-width: 1440px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+
+    @media (max-width: 1024px) {
+      .app-layout { grid-template-columns: 1fr; }
+    }
+
+    /* Form Container */
+    .form-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 32px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }
+
+    .form-header {
+      margin-bottom: 24px;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 16px;
+    }
+    .form-header h1 {
+      font-size: 22px;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .form-header p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .form-instructions {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #1e40af;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .row {
+      display: flex;
+      gap: 16px;
+    }
+    .col { flex: 1; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    .required { color: #ef4444; }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      color: #0f172a;
+      transition: all 0.2s ease;
+      background: #ffffff;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    /* File upload styled wrapper */
+    .file-upload-box {
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      background: #f8fafc;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .file-upload-box.dragover {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+    .file-upload-box input[type="file"] {
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .file-status-indicator {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .status-none { background: #f1f5f9; color: #64748b; }
+    .status-attached { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+
+    .btn-submit {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: background 0.2s;
+    }
+    .btn-submit:hover { background: var(--primary-hover); }
+
+    /* Inspector Panel */
+    .inspector-panel {
+      background: var(--code-bg);
+      border-radius: 12px;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #1e293b;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+      position: sticky;
+      top: 24px;
+      height: calc(100vh - 100px);
+      overflow: hidden;
+    }
+
+    .inspector-header {
+      padding: 16px 20px;
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .inspector-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #38bdf8;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    /* Live Summary Cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 16px 20px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+    }
+    .summary-card {
+      background: #1e293b;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .summary-card-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .summary-card-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .summary-card-val.active { color: #34d399; }
+
+    /* Stream Log Container */
+    .stream-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .log-item {
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid #38bdf8;
+      animation: fadeIn 0.2s ease;
+    }
+    .log-item.event-change { border-left-color: #10b981; background: rgba(16, 185, 129, 0.08); }
+    .log-item.event-drop { border-left-color: #a855f7; background: rgba(168, 85, 247, 0.08); }
+    .log-item.event-input { border-left-color: #3b82f6; }
+    .log-item.event-focus { border-left-color: #eab308; }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    .log-tag {
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .tag-change { background: #065f46; color: #34d399; }
+    .tag-drop { background: #581c87; color: #d8b4fe; }
+    .tag-input { background: #1e3a8a; color: #93c5fd; }
+    .tag-focus { background: #713f12; color: #fde047; }
+
+    .log-body {
+      color: #e2e8f0;
+      word-break: break-word;
+    }
+    .log-val {
+      color: #fbbf24;
+      font-weight: 600;
+    }
+
+    .inspector-footer {
+      padding: 12px 16px;
+      background: #111827;
+      border-top: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn-clear {
+      background: #374151;
+      color: #d1d5db;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-clear:hover { background: #4b5563; }
+    .btn-validate {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 99999;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #ffffff;
+      padding: 32px;
+      border-radius: 12px;
+      max-width: 540px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .modal-box h3 { margin-bottom: 12px; color: #059669; }
+    .modal-box pre {
+      background: #f1f5f9;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+      margin: 16px 0;
+    }
+    .modal-close-btn {
+      background: #0f172a;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-banner">
+    <h2>
+      <span>⚡</span> Job Co-Pilot Realistic Test Form
+      <span class="badge">Standard HTML5 + Live Event Stream</span>
+    </h2>
+    <div class="top-links">
+      <a href="/api/resume.pdf" target="_blank">📄 View Candidate Resume PDF</a>
+      <a href="/api/profile" target="_blank">👤 View Candidate Profile Data</a>
+      <a href="/api/health" target="_blank">🟢 Bridge Status</a>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <!-- LEFT COLUMN: Realistic Job Application Form -->
+    <div class="form-card">
+      <div class="form-header">
+        <h1>Senior Full-Stack Engineer Application</h1>
+        <p>Acme Software Inc. • San Francisco, CA (Remote)</p>
+      </div>
+
+      <div class="form-instructions">
+        👉 <strong>How to test 1-click autofill:</strong>
+        Look for the floating <strong>⚡ Job Co-Pilot</strong> button in the bottom-right corner. Click it and press <strong>"1-Click Auto-Fill Form"</strong>. Watch the Live Activity Inspector on the right record every change, date selection, and resume upload!
+      </div>
+
+      <form id="application-form" novalidate>
+        <div class="row">
+          <div class="form-group col">
+            <label for="first_name">First Name <span class="required">*</span></label>
+            <input type="text" id="first_name" name="first_name" placeholder="e.g. Jane" required>
+          </div>
+          <div class="form-group col">
+            <label for="last_name">Last Name <span class="required">*</span></label>
+            <input type="text" id="last_name" name="last_name" placeholder="e.g. Doe" required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="form-group col">
+            <label for="email">Email Address <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="jane.doe@example.com" required>
+          </div>
+          <div class="form-group col">
+            <label for="phone">Phone Number <span class="required">*</span></label>
+            <input type="tel" id="phone" name="phone" placeholder="+1 (555) 000-0000" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="linkedin_url">LinkedIn Profile URL</label>
+          <input type="text" id="linkedin_url" name="linkedin_url" placeholder="https://linkedin.com/in/...">
+        </div>
+
+        <div class="form-group">
+          <label for="github_url">GitHub Profile URL</label>
+          <input type="text" id="github_url" name="github_url" placeholder="https://github.com/...">
+        </div>
+
+        <div class="row">
+          <div class="form-group col">
+            <label for="desired_salary">Desired Salary ($ USD)</label>
+            <input type="text" id="desired_salary" name="desired_salary" placeholder="e.g. 165000">
+          </div>
+          <div class="form-group col">
+            <label for="notice_period">Notice Period / Availability</label>
+            <input type="text" id="notice_period" name="notice_period" placeholder="e.g. 2 weeks">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="work_authorization">Will you now or in the future require visa sponsorship? <span class="required">*</span></label>
+          <select id="work_authorization" name="work_authorization" required>
+            <option value="">-- Please Select --</option>
+            <option value="No">No, I am authorized to work without sponsorship</option>
+            <option value="Yes">Yes, I will require sponsorship</option>
+          </select>
+        </div>
+
+        <!-- RESUME ATTACHMENT SECTION -->
+        <div class="form-group">
+          <label for="resume">Attach Resume / CV (.pdf) <span class="required">*</span></label>
+          <div class="file-upload-box" id="resume-dropzone">
+            <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" required>
+            <div style="margin-top: 8px;">
+              <span id="resume-badge" class="file-status-indicator status-none">No file attached yet</span>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+              Supports PDF, DOC, DOCX up to 10MB • Drag & drop supported
+            </div>
+          </div>
+        </div>
+
+        <!-- REAL-WORLD CALENDAR & DATE PICKER SUITE -->
+        <div class="row">
+          <div class="form-group col">
+            <label for="start_date">Earliest Start Date (HTML5 Native Calendar) <span class="required">*</span></label>
+            <input type="date" id="start_date" name="start_date" required>
+          </div>
+          <div class="form-group col">
+            <label for="grad_date">Graduation Date (Masked Text MM/YYYY) <span class="required">*</span></label>
+            <input type="text" id="grad_date" name="grad_date" placeholder="MM/YYYY" required>
+          </div>
+        </div>
+
+        <!-- ATS STYLE SPLIT MONTH & YEAR (Standard for LinkedIn & Workday) -->
+        <div class="row">
+          <div class="form-group col">
+            <label for="employment_start_month">Previous Job Start Month (Split Dropdown) <span class="required">*</span></label>
+            <select id="employment_start_month" name="employment_start_month" required>
+              <option value="">-- Month --</option>
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+          <div class="form-group col">
+            <label for="employment_start_year">Previous Job Start Year <span class="required">*</span></label>
+            <select id="employment_start_year" name="employment_start_year" required>
+              <option value="">-- Year --</option>
+              <option value="2018">2018</option>
+              <option value="2019">2019</option>
+              <option value="2020">2020</option>
+              <option value="2021">2021</option>
+              <option value="2022">2022</option>
+              <option value="2023">2023</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ATS CUSTOM CALENDAR POPUP PICKER (Standard for Greenhouse & Taleo) -->
+        <div class="form-group" style="position: relative;">
+          <label for="calendar_popup_date">Interview Availability (Interactive Calendar Popover) <span class="required">*</span></label>
+          <input type="text" id="calendar_popup_date" name="calendar_popup_date" placeholder="Click to open calendar..." autocomplete="off" required>
+          <div id="ui-datepicker-div" class="ui-datepicker" style="display: none; position: absolute; z-index: 1000; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); width: 280px; margin-top: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 700; font-size: 13px;">
+              <span>◀</span>
+              <span id="calendar-header-title">November 2026</span>
+              <span>▶</span>
+            </div>
+            <table class="ui-datepicker-calendar" style="width: 100%; text-align: center; font-size: 12px; border-collapse: collapse;">
+              <thead>
+                <tr style="color: #64748b;"><th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th></tr>
+              </thead>
+              <tbody id="calendar-days-body">
+                <!-- Day buttons populated via script -->
+              </tbody>
+            </table>
+          </div>
+        <!-- REAL-WORLD EMPLOYER SECTION (Matches Greenhouse/Workday exactly) -->
+        <div class="section-container" style="margin-top: 24px; padding-top: 20px; border-top: 2px dashed #e2e8f0;">
+          <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">Employer</h3>
+          <div class="row">
+            <div class="form-group col">
+              <label for="employer_designation">Designation <span class="required">*</span></label>
+              <input type="text" id="employer_designation" name="employer_designation" placeholder="e.g. Senior Software Engineer" required>
+            </div>
+            <div class="form-group col">
+              <label for="employer_company_name">Company/Business name <span class="required">*</span></label>
+              <input type="text" id="employer_company_name" name="employer_company_name" placeholder="e.g. Acme Innovations Inc." required>
+            </div>
+          </div>
+          <div class="row">
+            <div class="form-group col">
+              <label for="employer_start_date">Start date <span class="required">*</span></label>
+              <input type="text" id="employer_start_date" name="employer_start_date" placeholder="MM/DD/YYYY or Month Year" required>
+            </div>
+            <div class="form-group col" style="display: flex; align-items: center; padding-top: 22px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                <input type="checkbox" id="employer_currently_work_here" name="employer_currently_work_here" value="true">
+                I currently work here
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="employer_summary">Summary</label>
+            <textarea id="employer_summary" name="employer_summary" rows="2" placeholder="Responsibilities and accomplishments..."></textarea>
+          </div>
+        </div>
+
+        <!-- REAL-WORLD EDUCATION SECTION (Matches Greenhouse/Workday exactly) -->
+        <div class="section-container" style="margin-top: 24px; padding-top: 20px; border-top: 2px dashed #e2e8f0;">
+          <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">Education</h3>
+          <div class="row">
+            <div class="form-group col">
+              <label for="edu_degree">Degree <span class="required">*</span></label>
+              <input type="text" id="edu_degree" name="edu_degree" placeholder="e.g. Bachelor of Science" required>
+            </div>
+            <div class="form-group col">
+              <label for="edu_field_of_study">Field of study/major</label>
+              <input type="text" id="edu_field_of_study" name="edu_field_of_study" placeholder="e.g. Computer Science">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="edu_school_name">Institution/school name <span class="required">*</span></label>
+            <input type="text" id="edu_school_name" name="edu_school_name" placeholder="e.g. University of California, Berkeley" required>
+          </div>
+          <div class="row">
+            <div class="form-group col">
+              <label for="edu_start_date">Start date <span class="required">*</span></label>
+              <input type="text" id="edu_start_date" name="edu_start_date" placeholder="MM/DD/YYYY or Month Year" required>
+            </div>
+            <div class="form-group col">
+              <label for="edu_end_date">End date <span class="required">*</span></label>
+              <input type="text" id="edu_end_date" name="edu_end_date" placeholder="MM/DD/YYYY or Month Year" required>
+            </div>
+          </div>
+          <div class="row">
+            <div class="form-group col" style="display: flex; align-items: center; padding-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                <input type="checkbox" id="edu_currently_pursuing" name="edu_currently_pursuing" value="false">
+                Currently pursuing
+              </label>
+            </div>
+            <div class="form-group col">
+              <label for="edu_grade">Grade / GPA</label>
+              <input type="text" id="edu_grade" name="edu_grade" placeholder="e.g. 3.8">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cover_letter">Brief Summary / Cover Letter</label>
+          <textarea id="cover_letter" name="cover_letter" rows="3" placeholder="Tell us why you're a great fit..."></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-submit-app">Submit Application</button>
+      </form>
+    </div>
+
+    <!-- RIGHT COLUMN: Real-Time Live Activity & DOM Inspector -->
+    <div class="inspector-panel">
+      <div class="inspector-header">
+        <div class="inspector-title">
+          <div class="pulse-dot"></div>
+          Live DOM & Event Inspector
+        </div>
+        <div style="font-size: 11px; color: #94a3b8;" id="event-counter">0 events captured</div>
+      </div>
+
+      <!-- Quick Summary Status -->
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-card-label">📄 Resume File</div>
+          <div class="summary-card-val" id="sum-resume">None</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label">📅 Start Date</div>
+          <div class="summary-card-val" id="sum-start-date">Not set</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label">🎓 Grad Date</div>
+          <div class="summary-card-val" id="sum-grad-date">Not set</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label">📋 Filled Fields</div>
+          <div class="summary-card-val" id="sum-progress">0 / 13</div>
+        </div>
+      </div>
+
+      <!-- Stream log entries -->
+      <div class="stream-container" id="stream-logs">
+        <div style="color: #64748b; text-align: center; margin-top: 30px;">
+          Listening for input, change, and drop events...<br>
+          Click ⚡ Job Co-Pilot to test autofill.
+        </div>
+      </div>
+
+      <div class="inspector-footer">
+        <button class="btn-clear" id="btn-clear-logs">Clear Logs</button>
+        <button class="btn-validate" id="btn-test-validate">Validate Form</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submission Confirmation Modal -->
+  <div class="modal-overlay" id="submission-modal">
+    <div class="modal-box">
+      <h3>🎉 Application Successfully Validated & Submitted!</h3>
+      <p style="font-size: 13px; color: #475569;">All required fields, dates, and the resume file were successfully verified by standard HTML5 validation.</p>
+      <pre id="modal-data-dump"></pre>
+      <button class="modal-close-btn" onclick="document.getElementById('submission-modal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("application-form");
+    const streamLogs = document.getElementById("stream-logs");
+    const eventCounterEl = document.getElementById("event-counter");
+    const sumResume = document.getElementById("sum-resume");
+    const sumStartDate = document.getElementById("sum-start-date");
+    const sumGradDate = document.getElementById("sum-grad-date");
+    const sumProgress = document.getElementById("sum-progress");
+    const resumeBadge = document.getElementById("resume-badge");
+    const resumeDropzone = document.getElementById("resume-dropzone");
+
+    let eventCount = 0;
+
+    function addLogEntry(eventType, elementId, value, details) {
+      eventCount++;
+      eventCounterEl.innerText = `${eventCount} events captured`;
+
+      // Remove placeholder message on first log
+      if (eventCount === 1) streamLogs.innerHTML = "";
+
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement("div");
+      div.className = `log-item event-${eventType.toLowerCase()}`;
+
+      let tagClass = "tag-input";
+      if (eventType === "CHANGE") tagClass = "tag-change";
+      if (eventType === "DROP") tagClass = "tag-drop";
+      if (eventType === "FOCUS" || eventType === "BLUR") tagClass = "tag-focus";
+
+      div.innerHTML = `
+        <div class="log-header">
+          <span><span class="log-tag ${tagClass}">${eventType}</span> #${elementId || 'form'}</span>
+          <span>${time}</span>
+        </div>
+        <div class="log-body">
+          ${value ? `<span class="log-val">${escapeHtml(value)}</span>` : ''}
+          ${details ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">${escapeHtml(details)}</div>` : ''}
+        </div>
+      `;
+
+      streamLogs.appendChild(div);
+      streamLogs.scrollTop = streamLogs.scrollHeight;
+
+      // Stream to server.py backend terminal logger as well
+      fetch("/api/test-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: eventType, element: elementId, value: String(value || ''), details: String(details || '') })
+      }).catch(() => {});
+
+      updateSummary();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function updateSummary() {
+      // 1. Resume status
+      const resumeInput = document.getElementById("resume");
+      if (resumeInput.files && resumeInput.files.length > 0) {
+        const file = resumeInput.files[0];
+        const kb = (file.size / 1024).toFixed(1);
+        sumResume.innerText = `${file.name} (${kb} KB)`;
+        sumResume.className = "summary-card-val active";
+        resumeBadge.innerText = `✓ Attached: ${file.name} (${kb} KB)`;
+        resumeBadge.className = "file-status-indicator status-attached";
+      } else {
+        sumResume.innerText = "None";
+        sumResume.className = "summary-card-val";
+        resumeBadge.innerText = "No file attached yet";
+        resumeBadge.className = "file-status-indicator status-none";
+      }
+
+      // 2. Start Date
+      const startDateVal = document.getElementById("start_date").value;
+      if (startDateVal) {
+        sumStartDate.innerText = startDateVal;
+        sumStartDate.className = "summary-card-val active";
+      } else {
+        sumStartDate.innerText = "Not set";
+        sumStartDate.className = "summary-card-val";
+      }
+
+      // 3. Grad Date
+      const gradDateVal = document.getElementById("grad_date").value;
+      if (gradDateVal) {
+        sumGradDate.innerText = gradDateVal;
+        sumGradDate.className = "summary-card-val active";
+      } else {
+        sumGradDate.innerText = "Not set";
+        sumGradDate.className = "summary-card-val";
+      }
+
+      // 4. Progress
+      const inputs = Array.from(form.querySelectorAll("input, select, textarea"));
+      const filled = inputs.filter(el => {
+        if (el.type === "file") return el.files && el.files.length > 0;
+        return el.value && el.value.trim().length > 0;
+      });
+      sumProgress.innerText = `${filled.length} / ${inputs.length}`;
+      if (filled.length >= 10) {
+        sumProgress.className = "summary-card-val active";
+      }
+    }
+
+    // Attach listeners to all inputs
+    const elements = form.querySelectorAll("input, select, textarea");
+    elements.forEach(el => {
+      el.addEventListener("focus", () => {
+        addLogEntry("FOCUS", el.id || el.name, "", "");
+      });
+
+      el.addEventListener("input", (e) => {
+        addLogEntry("INPUT", el.id || el.name, el.value, `Type: ${el.type}`);
+      });
+
+      el.addEventListener("change", (e) => {
+        if (el.type === "file") {
+          const file = el.files?.[0];
+          const info = file ? `File: ${file.name} (${file.size} bytes, ${file.type})` : "Cleared";
+          addLogEntry("CHANGE", el.id || el.name, file ? file.name : "none", info);
+        } else {
+          addLogEntry("CHANGE", el.id || el.name, el.value, `Type: ${el.type}`);
+        }
+      });
+    });
+
+    // Dropzone listeners for Drag & Drop resume upload
+    resumeDropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      resumeDropzone.classList.add("dragover");
+    });
+    resumeDropzone.addEventListener("dragleave", () => {
+      resumeDropzone.classList.remove("dragover");
+    });
+    resumeDropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      resumeDropzone.classList.remove("dragover");
+      if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        document.getElementById("resume").files = e.dataTransfer.files;
+        addLogEntry("DROP", "resume", file.name, `Synthetic / Native Drop: ${file.size} bytes`);
+        document.getElementById("resume").dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+
+    // Clear logs
+    document.getElementById("btn-clear-logs").addEventListener("click", () => {
+      streamLogs.innerHTML = `<div style="color: #64748b; text-align: center; margin-top: 30px;">Logs cleared. Ready for next test.</div>`;
+      eventCount = 0;
+      eventCounterEl.innerText = "0 events captured";
+    });
+
+    // Validate form button
+    function validateFormAction() {
+      const isValid = form.checkValidity();
+      const inputs = Array.from(form.querySelectorAll("input, select, textarea"));
+      const data = {};
+      inputs.forEach(el => {
+        if (el.type === "file") {
+          data[el.name || el.id] = el.files?.[0] ? `${el.files[0].name} (${el.files[0].size} bytes)` : "MISSING";
+        } else {
+          data[el.name || el.id] = el.value || "MISSING";
+        }
+      });
+
+      if (!isValid) {
+        form.reportValidity();
+        addLogEntry("VALIDATION_FAILED", "form", "Missing required fields", JSON.stringify(data));
+      } else {
+        addLogEntry("VALIDATION_SUCCESS", "form", "All 13 fields valid!", "Ready for submission");
+        document.getElementById("modal-data-dump").innerText = JSON.stringify(data, null, 2);
+        document.getElementById("submission-modal").classList.add("open");
+      }
+    }
+
+    document.getElementById("btn-test-validate").addEventListener("click", validateFormAction);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      validateFormAction();
+    });
+
+    // Setup Greenhouse / jQuery UI style Calendar Popup
+    const calInput = document.getElementById("calendar_popup_date");
+    const calPopup = document.getElementById("ui-datepicker-div");
+    const calDaysBody = document.getElementById("calendar-days-body");
+
+    function renderCalendarGrid() {
+      calDaysBody.innerHTML = "";
+      let dayCounter = 1;
+      for (let r = 0; r < 5; r++) {
+        const tr = document.createElement("tr");
+        for (let c = 0; c < 7; c++) {
+          const td = document.createElement("td");
+          td.style.padding = "4px 2px";
+          if ((r === 0 && c < 0) || dayCounter > 30) {
+            td.innerHTML = "";
+          } else {
+            const currentDay = dayCounter;
+            const a = document.createElement("a");
+            a.href = "#";
+            a.innerText = currentDay;
+            a.style.display = "block";
+            a.style.padding = "4px";
+            a.style.borderRadius = "4px";
+            a.style.textDecoration = "none";
+            a.style.color = currentDay === 17 ? "#2563eb" : "#334155";
+            a.style.fontWeight = currentDay === 17 ? "700" : "500";
+            if (currentDay === 17) a.style.background = "#eff6ff";
+
+            a.addEventListener("click", (e) => {
+              e.preventDefault();
+              const formattedDate = `11/${String(currentDay).padStart(2, '0')}/2026`;
+              calInput.value = formattedDate;
+              calPopup.style.display = "none";
+              addLogEntry("CHANGE", "calendar_popup_date", formattedDate, "Selected via Calendar Popup");
+              calInput.dispatchEvent(new Event("input", { bubbles: true }));
+              calInput.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+            td.appendChild(a);
+            dayCounter++;
+          }
+          tr.appendChild(td);
+        }
+        calDaysBody.appendChild(tr);
+        if (dayCounter > 30) break;
+      }
+    }
+    renderCalendarGrid();
+
+    calInput.addEventListener("focus", () => {
+      calPopup.style.display = "block";
+    });
+    calInput.addEventListener("click", () => {
+      calPopup.style.display = "block";
+    });
+    document.addEventListener("click", (e) => {
+      if (!calPopup.contains(e.target) && e.target !== calInput) {
+        calPopup.style.display = "none";
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") calPopup.style.display = "none";
+    });
+
+    // Initialize summary
+    updateSummary();
+  </script>
+</body>
+</html>

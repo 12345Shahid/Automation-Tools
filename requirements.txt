@@ -1,0 +1,20 @@
+# Core Web Server & API
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.8.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# CLI & Formatting
+rich>=13.7.0
+typer>=0.12.0
+
+# LLM Providers
+langchain-openai>=0.1.0
+langchain-anthropic>=0.1.0
+langchain-google-genai>=1.0.0
+
+# Job Scraping & Automation
+python-jobspy>=1.1.50
+playwright>=1.45.0
+browser-use>=0.1.0
