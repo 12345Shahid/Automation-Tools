@@ -16,14 +16,14 @@ PROVIDERS = {
     "apinex": {
         "name": "APInex (20M Free Tokens)",
         "base_url": "https://api.apinex.bond/v1",
-        "default_model": "deepseek-chat",
+        "default_model": "free/deepseek-v4.1-flash",
         "available_models": [
-            "deepseek-chat",
-            "deepseek-r1",
-            "qwen-2.5-72b",
-            "glm-4-9b",
-            "claude-3-5-sonnet",
-            "gpt-4o-mini"
+            "free/deepseek-v4.1-flash",
+            "free/gemini-3.8-flash",
+            "free/gpt-6-luna",
+            "free/glm-5.3-flash",
+            "free/qwen-3.8-max",
+            "free/deepseek-v4-flash-0731"
         ],
         "env_key": "APINEX_API_KEY",
         "docs_url": "https://apinex.bond/overview",
