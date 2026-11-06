@@ -249,13 +249,30 @@ Try natural queries:
 ```bash
 python -m uvicorn server:app --port 8000 --reload
 ```
-Open **[http://127.0.0.1:8000/email-agent](http://127.0.0.1:8000/email-agent)**:
+Open **[http://127.0.0.1:8000/email-agent](http://127.0.0.1:8000/email-agent)** (or live on VPS at `https://agent.187.52.124.4.sslip.io`):
 * **Tab 1: 💬 AI Chat Copilot** — Chat in natural English to scrape leads, draft, and dispatch emails.
 * **Tab 2: 🎯 Lead Finder** — Visual interface to scrape Google Places, filter by "No Website", and 1-click transfer to outreach.
 * **Tab 3: 👥 Bulk Campaign** — Paste target leads and dispatch in batches with safe delays.
 * **Tab 4: 📬 Inbox & Search** — Search incoming Gmail messages by sender, subject, or body text.
+* **Tab 5: 💻 Coding Agents (CLI)** — Interactive in-browser Web Terminal with Google Antigravity (`agy`) and OpenCode (`opencode`) pre-authenticated and synced.
+
+### 4. Multi-Provider AI Switcher
+Switch AI engines on the fly via the top header modal:
+* **APInex (`api.apinex.bond`)**: 20M free tokens for zero-cost high-volume cold email generation.
+* **OpenRouter (`openrouter.ai`)**: Universal gateway for Claude 3.5, GPT-4o, and Llama 3 models.
+* **Kie.ai (`api.kie.ai`)**: High-speed OpenAI/DeepSeek endpoints.
+* **Offline Fallback**: Rule-based dynamic template generation requiring zero external API keys or credits.
 
 ---
+
+## ☁️ Production VPS & Cloud Terminal Deployment
+
+The entire suite is deployed natively on Ubuntu 24.04 (`187.52.124.4`):
+* **Native Architecture**: Managed via PM2 (`email-agent`, `web-terminal`, `mosq`) without memory-heavy Docker containers.
+* **Reverse Proxy & SSL**: Caddy automatically provisions SSL certificates for:
+  - `agent.187.52.124.4.sslip.io` (Web Dashboard & API)
+  - `terminal.187.52.124.4.sslip.io` (Basic-Auth Protected Web Terminal)
+* **Agent Memory Sync**: Both **Antigravity** (`brain` directory) and **OpenCode** (61 past sessions in SQLite `opencode.db`) have full conversation persistence on the VPS.
 
 ## 🛡️ Security, Privacy & Ethics
 
