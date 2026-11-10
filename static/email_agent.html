@@ -503,6 +503,7 @@ thetorresmetalroofing@gmail.com, Torres, INVigorate Roofing"></textarea>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Select AI Provider</label>
           <select id="modalProviderSelect" onchange="onModalProviderChange()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+            <option value="moonmath">MoonMath Zro — Private Inference (https://zro.moonmath.ai/v1)</option>
             <option value="apinex">APInex — 20M Free Tokens (https://api.apinex.bond/v1)</option>
             <option value="openrouter">OpenRouter — Universal Gateway (https://openrouter.ai/api/v1)</option>
             <option value="kie">Kie.ai — DeepSeek Direct (https://api.kie.ai/openai/v1)</option>
@@ -706,7 +707,9 @@ thetorresmetalroofing@gmail.com, Torres, INVigorate Roofing"></textarea>
           <option value="${m}" ${m === curModel ? 'selected' : ''}>${m}</option>
         `).join('');
 
-        if (prov === 'apinex') {
+        if (prov === 'moonmath') {
+          hint.innerHTML = `Zero request retention private inference. Key from <a href="https://zro.moonmath.ai" target="_blank" class="text-indigo-400 hover:underline">zro.moonmath.ai</a>`;
+        } else if (prov === 'apinex') {
           hint.innerHTML = `20M free tokens gateway. Get key at <a href="https://apinex.bond/overview" target="_blank" class="text-indigo-400 hover:underline">apinex.bond</a>`;
         } else if (prov === 'openrouter') {
           hint.innerHTML = `Access any model. Get key at <a href="https://openrouter.ai" target="_blank" class="text-indigo-400 hover:underline">openrouter.ai</a>`;

@@ -13,6 +13,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_FILE = BASE_DIR / "data" / "ai_provider_config.json"
 
 PROVIDERS = {
+    "moonmath": {
+        "name": "MoonMath Zro (Private Inference)",
+        "base_url": "https://zro.moonmath.ai/v1",
+        "default_model": "deepseek-v4.1-flash",
+        "available_models": [
+            "deepseek-v4.1-flash",
+            "deepseek-v4-flash-0731",
+            "glm-5.3-flash"
+        ],
+        "env_key": "MOONMATH_API_KEY",
+        "docs_url": "https://zro.moonmath.ai",
+        "requires_key": True
+    },
     "apinex": {
         "name": "APInex (20M Free Tokens)",
         "base_url": "https://api.apinex.bond/v1",
@@ -152,7 +165,8 @@ def call_active_llm(prompt: str, system_prompt: Optional[str] = None) -> str:
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "AutomationTools-Agent/1.0"
     }
     if provider_name == "openrouter":
         headers["HTTP-Referer"] = "https://github.com/12345Shahid/Automation-Tools"
@@ -191,7 +205,8 @@ def test_provider_connection(provider: str, api_key: str, model: Optional[str] =
 
     headers = {
         "Authorization": f"Bearer {api_key.strip()}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "AutomationTools-Agent/1.0"
     }
     if provider == "openrouter":
         headers["HTTP-Referer"] = "https://github.com/12345Shahid/Automation-Tools"
@@ -200,7 +215,7 @@ def test_provider_connection(provider: str, api_key: str, model: Optional[str] =
     payload = {
         "model": test_model,
         "messages": [{"role": "user", "content": "Respond with 'CONNECTED' in one word."}],
-        "max_tokens": 10
+        "max_tokens": 80
     }
 
     try:
