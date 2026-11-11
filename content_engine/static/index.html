@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ShortsEngine AI | Mobile Studio</title>
+  <title>ShortsEngine AI | Dual Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -25,7 +25,7 @@
     }
     .container {
       width: 100%;
-      max-width: 480px;
+      max-width: 500px;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -36,7 +36,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 4px;
+      padding: 8px 4px;
     }
     .logo-group {
       display: flex;
@@ -86,7 +86,34 @@
       50% { opacity: 0.5; transform: scale(0.85); }
     }
 
-    /* Card */
+    /* Tabs */
+    .tab-bar {
+      display: flex;
+      background: #0D121F;
+      padding: 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 4px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: #94A3B8;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: #1E293B;
+      color: #00F0FF;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Cards */
     .card {
       background: #0F1422;
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -106,13 +133,13 @@
     
     /* Inputs */
     .label {
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       color: #94A3B8;
       margin-bottom: 6px;
       display: block;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
     }
     .input-textarea {
       width: 100%;
@@ -121,7 +148,7 @@
       border-radius: 12px;
       padding: 12px 14px;
       color: #FFF;
-      font-size: 15px;
+      font-size: 14px;
       font-family: inherit;
       resize: none;
       outline: none;
@@ -149,7 +176,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin: 12px 0 16px;
+      margin: 10px 0 14px;
     }
     .pill {
       background: rgba(255, 255, 255, 0.05);
@@ -167,15 +194,15 @@
       color: #00F0FF;
     }
 
-    /* Button */
-    .btn-generate {
+    /* Buttons */
+    .btn-primary {
       width: 100%;
       background: linear-gradient(135deg, #00F0FF 0%, #0070F3 50%, #7000FF 100%);
       color: #FFF;
       border: none;
       border-radius: 14px;
-      padding: 16px;
-      font-size: 16px;
+      padding: 15px;
+      font-size: 15px;
       font-weight: 700;
       cursor: pointer;
       display: flex;
@@ -185,13 +212,43 @@
       box-shadow: 0 6px 20px rgba(0, 240, 255, 0.25);
       transition: all 0.2s;
     }
-    .btn-generate:active {
+    .btn-primary:active {
       transform: scale(0.98);
       filter: brightness(0.9);
     }
-    .btn-generate:disabled {
+    .btn-primary:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    /* Roadmap UI */
+    .shot-card {
+      background: #080B12;
+      border-left: 3px solid #00F0FF;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .shot-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: #00F0FF;
+      margin-bottom: 4px;
+    }
+    .shot-action {
+      font-size: 13px;
+      color: #F8FAFC;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .shot-say {
+      font-size: 12px;
+      color: #FBBF24;
+      background: rgba(245, 158, 11, 0.1);
+      padding: 6px 10px;
+      border-radius: 6px;
     }
 
     /* Progress Overlay */
@@ -270,13 +327,9 @@
       justify-content: center;
       gap: 6px;
       text-decoration: none;
-      transition: background 0.15s;
-    }
-    .btn-secondary:active {
-      background: #334155;
     }
 
-    /* Copy Box */
+    /* Metadata */
     .metadata-box {
       background: #080B12;
       border-radius: 12px;
@@ -357,6 +410,20 @@
       justify-content: center;
       cursor: pointer;
     }
+
+    /* File Input */
+    .file-drop-area {
+      border: 2px dashed rgba(0, 240, 255, 0.3);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      background: #080B12;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+    .file-drop-area:hover {
+      border-color: #00F0FF;
+    }
   </style>
 </head>
 <body>
@@ -370,13 +437,25 @@
       </div>
       <div class="badge">
         <span class="badge-dot"></span>
-        VPS Online
+        GLM 5.3 + VPS Online
       </div>
     </div>
 
-    <!-- Generator Card -->
-    <div class="card">
-      <div class="card-title">🎬 Create New Viral Short</div>
+    <!-- Mode Tab Bar -->
+    <div class="tab-bar">
+      <button id="tab1Btn" class="tab-btn active" onclick="switchTab('mode1')">
+        🚀 Mode 1: Autonomous (0 Recording)
+      </button>
+      <button id="tab2Btn" class="tab-btn" onclick="switchTab('mode2')">
+        🎬 Mode 2: Smart Editor (Your Flow)
+      </button>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODE 1: AUTONOMOUS GENERATOR -->
+    <!-- ============================================== -->
+    <div id="mode1Card" class="card">
+      <div class="card-title">🚀 100% Autonomous Short Generator</div>
       
       <label class="label">Video Topic or Angle</label>
       <textarea id="topicInput" class="input-textarea" rows="3" placeholder="e.g. Why free AI tools beat $200 subscriptions..."></textarea>
@@ -390,7 +469,7 @@
       </div>
 
       <label class="label">Voiceover Narrator</label>
-      <select id="voiceSelect" class="select-dropdown">
+      <select id="voiceSelect1" class="select-dropdown">
         <option value="christopher" selected>Christopher (Authoritative Tech Male)</option>
         <option value="eric">Eric (Deep Conversational Male)</option>
         <option value="jenny">Jenny (Clear Professional Female)</option>
@@ -399,22 +478,75 @@
       </select>
 
       <div style="margin-top: 18px;">
-        <button id="generateBtn" class="btn-generate" onclick="startGeneration()">
+        <button id="generateBtn1" class="btn-primary" onclick="startMode1Generation()">
           <span>🚀 Generate 40s Viral Short</span>
         </button>
       </div>
+    </div>
 
-      <!-- Live Progress Box -->
-      <div id="progressBox" class="progress-box">
-        <div class="spinner"></div>
-        <div id="progressStatus" class="progress-status">Writing Looped-Arc Script...</div>
-        <div class="progress-desc">Applying open loops, neural speech, and FFmpeg kinetic cuts (~35s)</div>
+    <!-- ============================================== -->
+    <!-- MODE 2: SMART DIRECTOR & RAW VIDEO EDITOR -->
+    <!-- ============================================== -->
+    <div id="mode2Card" class="card" style="display: none;">
+      <div class="card-title">🎬 Mode 2: Director & Video Polish</div>
+      
+      <!-- Step 2A: Generate Recording Roadmap -->
+      <label class="label">Step 1: Viral Source (URL / Video Transcript / Topic)</label>
+      <textarea id="sourceInput" class="input-textarea" rows="3" placeholder="Paste YouTube link, video transcript, or tool topic to get your step-by-step recording roadmap..."></textarea>
+      
+      <div style="margin-top: 10px;">
+        <button id="roadmapBtn" class="btn-primary" onclick="generateRoadmap()">
+          <span>🎯 Generate Director's Roadmap (GLM 5.3)</span>
+        </button>
       </div>
+
+      <!-- Roadmap Results Accordion -->
+      <div id="roadmapBox" style="display: none; margin-top: 16px;">
+        <div style="font-size: 13px; font-weight: 700; color: #38BDF8; margin-bottom: 8px;">
+          📋 5-Step Recording Roadmap (Follow on Screen):
+        </div>
+        <div id="shotListContainer"></div>
+
+        <label class="label" style="margin-top: 14px;">Polished Studio Voiceover Script</label>
+        <textarea id="polishedScriptInput" class="input-textarea" rows="4"></textarea>
+
+        <!-- Step 2B: Upload Raw Video -->
+        <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
+          <label class="label">Step 2: Upload Raw Video (Phone or Screen Recording)</label>
+          <div class="file-drop-area" onclick="document.getElementById('rawVideoFile').click()">
+            <div id="fileUploadLabel" style="font-size: 13px; color: #94A3B8;">
+              📹 Tap to select raw video (.mp4 or .mov)
+            </div>
+            <input type="file" id="rawVideoFile" accept="video/*" style="display: none;" onchange="handleFileSelect(this)">
+          </div>
+
+          <label class="label">Studio Narrator Voice</label>
+          <select id="voiceSelect2" class="select-dropdown">
+            <option value="christopher" selected>Christopher (Authoritative Male)</option>
+            <option value="eric">Eric (Deep Conversational Male)</option>
+            <option value="jenny">Jenny (Clear Professional Female)</option>
+            <option value="sonia">Sonia (Refined British Female)</option>
+          </select>
+
+          <div style="margin-top: 16px;">
+            <button id="transformBtn" class="btn-primary" onclick="startRawTransformation()">
+              <span>✨ Wipe Voice & Transform to Viral Short</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Progress Box -->
+    <div id="progressBox" class="progress-box">
+      <div class="spinner"></div>
+      <div id="progressStatus" class="progress-status">Processing...</div>
+      <div class="progress-desc">Applying neural speech, video re-timing, and kinetic subtitles</div>
     </div>
 
     <!-- Generated Video Preview Card -->
     <div id="resultCard" class="card video-result-box">
-      <div class="card-title">✨ Generated Video Preview</div>
+      <div class="card-title">✨ Transformed Video Preview</div>
       
       <div class="video-player-wrapper">
         <video id="videoPlayer" controls playsinline></video>
@@ -438,7 +570,7 @@
 
     <!-- Past Videos Gallery -->
     <div class="card">
-      <div class="card-title">📁 Generated Shorts History</div>
+      <div class="card-title">📁 Generated Shorts Gallery</div>
       <div id="galleryList">
         <div style="font-size: 12px; color: #64748B; text-align: center; padding: 12px;">Loading past videos...</div>
       </div>
@@ -449,6 +581,15 @@
 
   <script>
     let currentMetadata = null;
+    let selectedRawFile = null;
+    let currentRoadmapData = null;
+
+    function switchTab(mode) {
+      document.getElementById('tab1Btn').classList.toggle('active', mode === 'mode1');
+      document.getElementById('tab2Btn').classList.toggle('active', mode === 'mode2');
+      document.getElementById('mode1Card').style.display = (mode === 'mode1') ? 'block' : 'none';
+      document.getElementById('mode2Card').style.display = (mode === 'mode2') ? 'block' : 'none';
+    }
 
     function setTopic(text) {
       document.getElementById('topicInput').value = text;
@@ -461,13 +602,20 @@
       setTimeout(() => toast.classList.remove('show'), 2200);
     }
 
+    function handleFileSelect(input) {
+      if (input.files && input.files[0]) {
+        selectedRawFile = input.files[0];
+        document.getElementById('fileUploadLabel').innerText = `✅ Selected: ${selectedRawFile.name} (${(selectedRawFile.size / 1024 / 1024).toFixed(1)} MB)`;
+      }
+    }
+
     async function loadPastVideos() {
       try {
         const res = await fetch('/api/videos');
         const data = await res.json();
         const list = document.getElementById('galleryList');
         if (!data.videos || data.videos.length === 0) {
-          list.innerHTML = '<div style="font-size: 12px; color: #64748B; text-align: center; padding: 12px;">No videos generated yet. Create your first one above!</div>';
+          list.innerHTML = '<div style="font-size: 12px; color: #64748B; text-align: center; padding: 12px;">No videos yet.</div>';
           return;
         }
         list.innerHTML = data.videos.map(v => `
@@ -496,7 +644,7 @@
       
       document.getElementById('metaTitle').innerText = meta.title || meta.topic;
       document.getElementById('metaPinned').innerText = meta.pinned_comment ? '📌 Pinned: ' + meta.pinned_comment : '';
-      document.getElementById('metaTags').innerText = meta.hashtags ? meta.hashtags.join(' ') : '';
+      document.getElementById('metaTags').innerText = meta.hashtags ? (Array.isArray(meta.hashtags) ? meta.hashtags.join(' ') : meta.hashtags) : '';
       
       const resultCard = document.getElementById('resultCard');
       resultCard.style.display = 'flex';
@@ -506,32 +654,26 @@
 
     function copyMetadata() {
       if (!currentMetadata) return;
-      const textToCopy = `TITLE:\n${currentMetadata.title}\n\nPINNED COMMENT:\n${currentMetadata.pinned_comment}\n\nTAGS:\n${(currentMetadata.hashtags || []).join(' ')}`;
+      const tags = Array.isArray(currentMetadata.hashtags) ? currentMetadata.hashtags.join(' ') : currentMetadata.hashtags;
+      const textToCopy = `TITLE:\n${currentMetadata.title}\n\nPINNED COMMENT:\n${currentMetadata.pinned_comment}\n\nTAGS:\n${tags || ''}`;
       navigator.clipboard.writeText(textToCopy).then(() => {
         showToast('📋 Title & Pinned Comment Copied!');
       });
     }
 
-    async function startGeneration() {
+    // MODE 1 GENERATION
+    async function startMode1Generation() {
       const topic = document.getElementById('topicInput').value.trim();
-      const voice = document.getElementById('voiceSelect').value;
-      if (!topic) {
-        alert('Please enter a topic or click one of the preset pills!');
-        return;
-      }
+      const voice = document.getElementById('voiceSelect1').value;
+      if (!topic) return alert('Please enter a topic!');
 
-      const generateBtn = document.getElementById('generateBtn');
+      const btn = document.getElementById('generateBtn1');
       const progressBox = document.getElementById('progressBox');
       const progressStatus = document.getElementById('progressStatus');
 
-      generateBtn.disabled = true;
+      btn.disabled = true;
       progressBox.style.display = 'block';
       progressStatus.innerText = '🧠 Writing Looped-Arc Script...';
-
-      // Simulation steps while server generates
-      const stepTimer1 = setTimeout(() => { progressStatus.innerText = '🎙️ Generating Neural Voiceover & Timestamps...'; }, 6000);
-      const stepTimer2 = setTimeout(() => { progressStatus.innerText = '🎨 Generating 9:16 Visuals & B-Roll...'; }, 13000);
-      const stepTimer3 = setTimeout(() => { progressStatus.innerText = '🎬 Compositing Cuts, Kinetic Subtitles & Music...'; }, 22000);
 
       try {
         const response = await fetch('/api/generate', {
@@ -539,28 +681,120 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topic, voice })
         });
-        
-        clearTimeout(stepTimer1);
-        clearTimeout(stepTimer2);
-        clearTimeout(stepTimer3);
-
         const data = await response.json();
         if (data.status === 'success' && data.video) {
           playVideo(data.video.video_url, data.video);
           loadPastVideos();
-          showToast('✨ Video Render Complete!');
+          showToast('✨ Autonomous Video Ready!');
         } else {
-          alert('Generation failed: ' + (data.detail || 'Unknown error'));
+          alert('Generation failed: ' + (data.detail || 'Error'));
         }
       } catch (err) {
-        alert('Network or server error: ' + err.message);
+        alert('Error: ' + err.message);
       } finally {
-        generateBtn.disabled = false;
+        btn.disabled = false;
         progressBox.style.display = 'none';
       }
     }
 
-    // Load history on initial open
+    // MODE 2: STEP 1 ROADMAP
+    async function generateRoadmap() {
+      const source = document.getElementById('sourceInput').value.trim();
+      if (!source) return alert('Please paste a video link, transcript, or topic!');
+
+      const btn = document.getElementById('roadmapBtn');
+      btn.disabled = true;
+      btn.innerText = '🧠 Analyzing with GLM 5.3 Flash...';
+
+      try {
+        const res = await fetch('/api/director/roadmap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source_input: source })
+        });
+        const data = await res.json();
+        if (data.status === 'success' && data.roadmap) {
+          currentRoadmapData = data.roadmap;
+          renderRoadmap(data.roadmap);
+          document.getElementById('roadmapBox').style.display = 'block';
+          showToast('🎯 Director Roadmap Ready!');
+        } else {
+          alert('Failed to generate roadmap');
+        }
+      } catch (e) {
+        alert('Roadmap error: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '🎯 Generate Director\'s Roadmap (GLM 5.3)';
+      }
+    }
+
+    function renderRoadmap(roadmap) {
+      const container = document.getElementById('shotListContainer');
+      container.innerHTML = (roadmap.shot_list || []).map(s => `
+        <div class="shot-card">
+          <div class="shot-header">
+            <span>Step ${s.step}: ${s.stage}</span>
+            <span>⏱️ ${s.time_window}</span>
+          </div>
+          <div class="shot-action"><strong>On Screen:</strong> ${s.action_on_screen}</div>
+          <div class="shot-say">🗣️ <strong>Say out loud:</strong> "${s.what_to_say_guide}"</div>
+        </div>
+      `).join('');
+
+      if (roadmap.polished_script && roadmap.polished_script.narration) {
+        document.getElementById('polishedScriptInput').value = roadmap.polished_script.narration;
+      }
+    }
+
+    // MODE 2: STEP 2 RAW VIDEO TRANSFORM
+    async function startRawTransformation() {
+      if (!selectedRawFile) return alert('Please select your raw video file!');
+      const scriptText = document.getElementById('polishedScriptInput').value.trim();
+      if (!scriptText) return alert('Script text cannot be empty!');
+      const voice = document.getElementById('voiceSelect2').value;
+
+      const btn = document.getElementById('transformBtn');
+      const progressBox = document.getElementById('progressBox');
+      const progressStatus = document.getElementById('progressStatus');
+
+      btn.disabled = true;
+      progressBox.style.display = 'block';
+      progressStatus.innerText = '🎙️ Wiping user voice & synthesizing studio audio...';
+
+      const formData = new FormData();
+      formData.append('video', selectedRawFile);
+      formData.append('script_text', scriptText);
+      formData.append('voice', voice);
+
+      if (currentRoadmapData && currentRoadmapData.polished_script) {
+        formData.append('title', currentRoadmapData.polished_script.title || '');
+        formData.append('description', currentRoadmapData.polished_script.description || '');
+        formData.append('hashtags', (currentRoadmapData.polished_script.hashtags || []).join(' '));
+        formData.append('pinned_comment', currentRoadmapData.polished_script.pinned_comment || '');
+      }
+
+      try {
+        const res = await fetch('/api/transform/raw', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.status === 'success' && data.video) {
+          playVideo(data.video.video_url, data.video);
+          loadPastVideos();
+          showToast('✨ Transformed Video Ready!');
+        } else {
+          alert('Transformation failed: ' + (data.detail || 'Error'));
+        }
+      } catch (err) {
+        alert('Transformation error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        progressBox.style.display = 'none';
+      }
+    }
+
     loadPastVideos();
   </script>
 </body>
