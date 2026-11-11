@@ -94,15 +94,17 @@ def compose_full_video(
     ]
     subprocess.run(cmd_concat, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # Mix audio
+    # Mix audio with dry punchline cutout
     mixed_audio = work_dir / "mixed_audio.aac"
-    print("[Composer] Mixing narration audio and background music...")
+    print("[Composer] Mixing narration audio and background music (with dry punchline cutout)...")
     mix_audio_track(
         voice_audio_path=voice_res["audio_path"],
         output_audio_path=str(mixed_audio),
         total_duration=total_duration,
         bgm_path=str(config.DEFAULT_BGM),
-        bgm_volume=bgm_volume
+        bgm_volume=bgm_volume,
+        dry_punchline=True,
+        punchline_lead_sec=2.0
     )
 
     # Subtitles

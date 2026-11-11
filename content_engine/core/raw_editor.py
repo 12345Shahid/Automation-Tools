@@ -82,20 +82,22 @@ def transform_raw_video(
     pts_factor = 1.0 / speed_factor
     print(f"[RawEditor] Sync speed factor: {speed_factor:.2f}x (pts={pts_factor:.3f})")
 
-    # 4. Format video to 9:16 vertical
+    # 4. Format video to 9:16 vertical + Documentary Grade (vignette & contrast)
     # If video is horizontal (16:9), create blurred top/bottom background with sharp centered video
     if not v_info["is_vertical"]:
         video_filter = (
             f"[0:v]setpts={pts_factor:.4f}*PTS,scale={config.VIDEO_WIDTH}:{config.VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
-            f"crop={config.VIDEO_WIDTH}:{config.VIDEO_HEIGHT},boxblur=20:5[bg];"
-            f"[0:v]setpts={pts_factor:.4f}*PTS,scale={config.VIDEO_WIDTH}:-1[fg];"
-            f"[bg][fg]overlay=(W-w)/2:(H-h)/2[vbase]"
+            f"crop={config.VIDEO_WIDTH}:{config.VIDEO_HEIGHT},boxblur=22:6[bg];"
+            f"[0:v]setpts={pts_factor:.4f}*PTS,scale={config.VIDEO_WIDTH}:-1,"
+            f"eq=contrast=1.07:brightness=0.01:saturation=1.12[fg];"
+            f"[bg][fg]overlay=(W-w)/2:(H-h)/2,vignette=PI/5[vbase]"
         )
     else:
-        # Already vertical: scale and center crop
+        # Already vertical: scale, center crop, and apply subtle documentary grade
         video_filter = (
             f"[0:v]setpts={pts_factor:.4f}*PTS,scale={config.VIDEO_WIDTH}:{config.VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
-            f"crop={config.VIDEO_WIDTH}:{config.VIDEO_HEIGHT}[vbase]"
+            f"crop={config.VIDEO_WIDTH}:{config.VIDEO_HEIGHT},"
+            f"eq=contrast=1.07:brightness=0.01:saturation=1.12,vignette=PI/5[vbase]"
         )
 
     base_formatted_video = work_dir / "base_formatted.mp4"
@@ -113,14 +115,16 @@ def transform_raw_video(
     ]
     subprocess.run(cmd_format, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # 5. Mix Studio Voice + Auto-Ducked BGM
+    # 5. Mix Studio Voice + Auto-Ducked BGM + Dry Punchline Cutout
     mixed_audio = work_dir / "mixed_audio.aac"
     mix_audio_track(
         voice_audio_path=str(studio_audio),
         output_audio_path=str(mixed_audio),
         total_duration=target_duration,
         bgm_path=str(config.DEFAULT_BGM),
-        bgm_volume=bgm_volume
+        bgm_volume=bgm_volume,
+        dry_punchline=True,
+        punchline_lead_sec=2.0
     )
 
     # 6. Burn Kinetic Subtitles
