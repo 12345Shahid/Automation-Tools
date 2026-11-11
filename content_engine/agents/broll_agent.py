@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import urllib.parse
 import urllib.request
@@ -12,28 +13,38 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 
 def search_pixabay_video(query: str, api_key: str) -> Optional[str]:
     """
-    Search Pixabay free Video API for a 1080p stock clip.
+    Search Pixabay free Video API for a 1080p stock clip with intelligent query simplification.
     Returns direct MP4 download URL or None.
     """
     if not api_key:
         return None
-    try:
-        encoded_q = urllib.parse.quote(query[:60])
-        url = f"https://pixabay.com/api/videos/?key={api_key}&q={encoded_q}&video_type=film&per_page=5"
-        req = urllib.request.Request(url, headers=UA)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-            hits = data.get("hits", [])
-            if hits:
-                # Pick first hit with large or medium mp4
-                videos = hits[0].get("videos", {})
-                for res_key in ("large", "medium", "small", "tiny"):
-                    v_info = videos.get(res_key, {})
-                    mp4_url = v_info.get("url")
-                    if mp4_url:
-                        return mp4_url
-    except Exception as e:
-        print(f"[BRollAgent] Pixabay query '{query}' warning: {e}")
+
+    # Construct search attempts: full query -> simplified keywords -> tech fallback
+    queries_to_try = [query]
+    clean_words = [w for w in re.sub(r'[^a-zA-Z0-9 ]', ' ', query).split() if len(w) > 2]
+    if len(clean_words) > 3:
+        queries_to_try.append(" ".join(clean_words[:3]))
+        queries_to_try.append(" ".join(clean_words[-3:]))
+    queries_to_try.append("technology abstract")
+
+    for q in queries_to_try:
+        try:
+            encoded_q = urllib.parse.quote(q)
+            url = f"https://pixabay.com/api/videos/?key={api_key}&q={encoded_q}&video_type=film&per_page=5"
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+                hits = data.get("hits", [])
+                if hits:
+                    videos = hits[0].get("videos", {})
+                    for res_key in ("large", "medium", "small", "tiny"):
+                        v_info = videos.get(res_key, {})
+                        mp4_url = v_info.get("url")
+                        if mp4_url:
+                            print(f"[BRollAgent] Found Pixabay clip for query '{q}'")
+                            return mp4_url
+        except Exception as e:
+            continue
     return None
 
 def download_video_clip(url: str, dest_path: Path) -> bool:
@@ -153,7 +164,7 @@ def prepare_broll_scene(
     query_text: str,
     duration: float,
     work_dir: Path,
-    pixabay_key: str = config.PIXABAY_API_KEY
+    pixabay_key: Optional[str] = None
 ) -> Path:
     """
     Sourcing agent: fetches or creates a 9:16 vertical b-roll clip for a scene.
@@ -165,9 +176,10 @@ def prepare_broll_scene(
         return out_clip
 
     # 1. Try Pixabay Video Search
-    if pixabay_key:
+    active_key = pixabay_key or os.getenv("PIXABAY_API_KEY") or config.PIXABAY_API_KEY
+    if active_key:
         print(f"[BRollAgent] Searching Pixabay for: '{query_text}'...")
-        mp4_url = search_pixabay_video(query_text, pixabay_key)
+        mp4_url = search_pixabay_video(query_text, active_key)
         if mp4_url:
             raw_stock = work_dir / f"stock_raw_{scene_idx:02d}.mp4"
             if download_video_clip(mp4_url, raw_stock):
