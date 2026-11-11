@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ShortsEngine AI | Mobile Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #07090E;
+      color: #E2E8F0;
+      padding: 16px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 40px;
+    }
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 4px;
+    }
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00F0FF, #7000FF);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 14px rgba(0, 240, 255, 0.3);
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #FFFFFF, #94A3B8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: #34D399;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10B981;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* Card */
+    .card {
+      background: #0F1422;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #F8FAFC;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Inputs */
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94A3B8;
+      margin-bottom: 6px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .input-textarea {
+      width: 100%;
+      background: #080B12;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #FFF;
+      font-size: 15px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .input-textarea:focus {
+      border-color: #00F0FF;
+      box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.15);
+    }
+    .select-dropdown {
+      width: 100%;
+      background: #080B12;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #FFF;
+      font-size: 14px;
+      outline: none;
+      margin-top: 6px;
+      font-family: inherit;
+    }
+    
+    /* Pills */
+    .pills-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 12px 0 16px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: #94A3B8;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pill:hover, .pill:active {
+      background: rgba(0, 240, 255, 0.12);
+      border-color: #00F0FF;
+      color: #00F0FF;
+    }
+
+    /* Button */
+    .btn-generate {
+      width: 100%;
+      background: linear-gradient(135deg, #00F0FF 0%, #0070F3 50%, #7000FF 100%);
+      color: #FFF;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.25);
+      transition: all 0.2s;
+    }
+    .btn-generate:active {
+      transform: scale(0.98);
+      filter: brightness(0.9);
+    }
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Progress Overlay */
+    .progress-box {
+      display: none;
+      background: rgba(8, 11, 18, 0.95);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      margin-top: 14px;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #00F0FF;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .progress-status {
+      font-size: 14px;
+      font-weight: 600;
+      color: #00F0FF;
+    }
+    .progress-desc {
+      font-size: 12px;
+      color: #64748B;
+      margin-top: 4px;
+    }
+
+    /* Video Player Box */
+    .video-result-box {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .video-player-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      border-radius: 18px;
+      overflow: hidden;
+      aspect-ratio: 9 / 16;
+      background: #000;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      border: 2px solid rgba(0, 240, 255, 0.3);
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .action-btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-secondary {
+      flex: 1;
+      background: #1E293B;
+      color: #F8FAFC;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-secondary:active {
+      background: #334155;
+    }
+
+    /* Copy Box */
+    .metadata-box {
+      background: #080B12;
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+    }
+    .meta-title {
+      font-weight: 700;
+      color: #FFF;
+      margin-bottom: 6px;
+    }
+    .meta-pinned {
+      color: #38BDF8;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .meta-tags {
+      color: #64748B;
+      font-size: 11px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10B981;
+      color: #FFF;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+      transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    /* Gallery */
+    .gallery-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: #080B12;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      margin-bottom: 8px;
+    }
+    .gallery-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #F1F5F9;
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gallery-meta {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 2px;
+    }
+    .btn-icon {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: #00F0FF;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo-group">
+        <div class="logo-icon">⚡</div>
+        <div class="title">ShortsEngine AI</div>
+      </div>
+      <div class="badge">
+        <span class="badge-dot"></span>
+        VPS Online
+      </div>
+    </div>
+
+    <!-- Generator Card -->
+    <div class="card">
+      <div class="card-title">🎬 Create New Viral Short</div>
+      
+      <label class="label">Video Topic or Angle</label>
+      <textarea id="topicInput" class="input-textarea" rows="3" placeholder="e.g. Why free AI tools beat $200 subscriptions..."></textarea>
+      
+      <!-- Quick Viral Pills -->
+      <div class="pills-container">
+        <div class="pill" onclick="setTopic('Why free AI tools beat $200 subscriptions')">💡 Free vs $200 AI</div>
+        <div class="pill" onclick="setTopic('How autonomous AI agents build businesses for $0')">🤖 $0 AI Agents</div>
+        <div class="pill" onclick="setTopic('3 AI tools that feel illegal to know in 2026')">🔥 3 Secret Tools</div>
+        <div class="pill" onclick="setTopic('DeepSeek V4 vs Claude Opus: The Honest Truth')">⚔️ DeepSeek vs Claude</div>
+      </div>
+
+      <label class="label">Voiceover Narrator</label>
+      <select id="voiceSelect" class="select-dropdown">
+        <option value="christopher" selected>Christopher (Authoritative Tech Male)</option>
+        <option value="eric">Eric (Deep Conversational Male)</option>
+        <option value="jenny">Jenny (Clear Professional Female)</option>
+        <option value="sonia">Sonia (Refined British Female)</option>
+        <option value="ryan">Ryan (Dynamic British Male)</option>
+      </select>
+
+      <div style="margin-top: 18px;">
+        <button id="generateBtn" class="btn-generate" onclick="startGeneration()">
+          <span>🚀 Generate 40s Viral Short</span>
+        </button>
+      </div>
+
+      <!-- Live Progress Box -->
+      <div id="progressBox" class="progress-box">
+        <div class="spinner"></div>
+        <div id="progressStatus" class="progress-status">Writing Looped-Arc Script...</div>
+        <div class="progress-desc">Applying open loops, neural speech, and FFmpeg kinetic cuts (~35s)</div>
+      </div>
+    </div>
+
+    <!-- Generated Video Preview Card -->
+    <div id="resultCard" class="card video-result-box">
+      <div class="card-title">✨ Generated Video Preview</div>
+      
+      <div class="video-player-wrapper">
+        <video id="videoPlayer" controls playsinline></video>
+      </div>
+
+      <div class="action-btn-row">
+        <a id="downloadBtn" href="#" download class="btn-secondary" style="background: linear-gradient(135deg, #00F0FF, #0070F3); color: #FFF; border: none;">
+          ⬇️ Download to Phone
+        </a>
+        <button class="btn-secondary" onclick="copyMetadata()">
+          📋 Copy Title & Pinned
+        </button>
+      </div>
+
+      <div class="metadata-box">
+        <div id="metaTitle" class="meta-title"></div>
+        <div id="metaPinned" class="meta-pinned"></div>
+        <div id="metaTags" class="meta-tags"></div>
+      </div>
+    </div>
+
+    <!-- Past Videos Gallery -->
+    <div class="card">
+      <div class="card-title">📁 Generated Shorts History</div>
+      <div id="galleryList">
+        <div style="font-size: 12px; color: #64748B; text-align: center; padding: 12px;">Loading past videos...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Copied to Clipboard!</div>
+
+  <script>
+    let currentMetadata = null;
+
+    function setTopic(text) {
+      document.getElementById('topicInput').value = text;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    async function loadPastVideos() {
+      try {
+        const res = await fetch('/api/videos');
+        const data = await res.json();
+        const list = document.getElementById('galleryList');
+        if (!data.videos || data.videos.length === 0) {
+          list.innerHTML = '<div style="font-size: 12px; color: #64748B; text-align: center; padding: 12px;">No videos generated yet. Create your first one above!</div>';
+          return;
+        }
+        list.innerHTML = data.videos.map(v => `
+          <div class="gallery-item">
+            <div>
+              <div class="gallery-title">${v.title || v.topic}</div>
+              <div class="gallery-meta">${v.duration ? v.duration.toFixed(1) + 's' : ''} • ${v.created_at || ''}</div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn-icon" onclick="playVideo('${v.video_url}', ${JSON.stringify(v).replace(/"/g, '&quot;')})">▶</button>
+              <a class="btn-icon" href="${v.video_url}" download="short_${v.id}.mp4">⬇</a>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load past videos:', err);
+      }
+    }
+
+    function playVideo(url, meta) {
+      currentMetadata = meta;
+      const player = document.getElementById('videoPlayer');
+      player.src = url;
+      document.getElementById('downloadBtn').href = url;
+      document.getElementById('downloadBtn').setAttribute('download', meta.filename || 'short.mp4');
+      
+      document.getElementById('metaTitle').innerText = meta.title || meta.topic;
+      document.getElementById('metaPinned').innerText = meta.pinned_comment ? '📌 Pinned: ' + meta.pinned_comment : '';
+      document.getElementById('metaTags').innerText = meta.hashtags ? meta.hashtags.join(' ') : '';
+      
+      const resultCard = document.getElementById('resultCard');
+      resultCard.style.display = 'flex';
+      resultCard.scrollIntoView({ behavior: 'smooth' });
+      player.play().catch(() => {});
+    }
+
+    function copyMetadata() {
+      if (!currentMetadata) return;
+      const textToCopy = `TITLE:\n${currentMetadata.title}\n\nPINNED COMMENT:\n${currentMetadata.pinned_comment}\n\nTAGS:\n${(currentMetadata.hashtags || []).join(' ')}`;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        showToast('📋 Title & Pinned Comment Copied!');
+      });
+    }
+
+    async function startGeneration() {
+      const topic = document.getElementById('topicInput').value.trim();
+      const voice = document.getElementById('voiceSelect').value;
+      if (!topic) {
+        alert('Please enter a topic or click one of the preset pills!');
+        return;
+      }
+
+      const generateBtn = document.getElementById('generateBtn');
+      const progressBox = document.getElementById('progressBox');
+      const progressStatus = document.getElementById('progressStatus');
+
+      generateBtn.disabled = true;
+      progressBox.style.display = 'block';
+      progressStatus.innerText = '🧠 Writing Looped-Arc Script...';
+
+      // Simulation steps while server generates
+      const stepTimer1 = setTimeout(() => { progressStatus.innerText = '🎙️ Generating Neural Voiceover & Timestamps...'; }, 6000);
+      const stepTimer2 = setTimeout(() => { progressStatus.innerText = '🎨 Generating 9:16 Visuals & B-Roll...'; }, 13000);
+      const stepTimer3 = setTimeout(() => { progressStatus.innerText = '🎬 Compositing Cuts, Kinetic Subtitles & Music...'; }, 22000);
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, voice })
+        });
+        
+        clearTimeout(stepTimer1);
+        clearTimeout(stepTimer2);
+        clearTimeout(stepTimer3);
+
+        const data = await response.json();
+        if (data.status === 'success' && data.video) {
+          playVideo(data.video.video_url, data.video);
+          loadPastVideos();
+          showToast('✨ Video Render Complete!');
+        } else {
+          alert('Generation failed: ' + (data.detail || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network or server error: ' + err.message);
+      } finally {
+        generateBtn.disabled = false;
+        progressBox.style.display = 'none';
+      }
+    }
+
+    // Load history on initial open
+    loadPastVideos();
+  </script>
+</body>
+</html>

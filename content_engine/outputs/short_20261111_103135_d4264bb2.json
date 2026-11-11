@@ -1,0 +1,55 @@
+{
+  "id": "d4264bb2",
+  "filename": "short_20261111_103135_d4264bb2.mp4",
+  "video_path": "/Users/shahidhasan/createHalal/browser-agent/content_engine/outputs/short_20261111_103135_d4264bb2.mp4",
+  "topic": "Why free AI tools beat expensive subscriptions",
+  "voice": "en-US-ChristopherNeural",
+  "duration": 39.23,
+  "title": "He canceled his $200 AI subscription and got better results \ud83d\ude32\ud83d\ude32",
+  "description": "Paid AI tools quietly throttle your speed and cap your usage, while free open-source models get updated weekly by thousands of developers. Here is why the free stack now beats the premium one.",
+  "hashtags": [
+    "#shorts",
+    "#ai",
+    "#opensource",
+    "#viral"
+  ],
+  "pinned_comment": "Grab the free AI tool stack I use instead of subscriptions in my bio \ud83d\udc47 Comment 'FREE' and I'll send it!",
+  "scenes": [
+    {
+      "id": 1,
+      "stage": "Hook",
+      "narration": "Why do people paying two hundred dollars a month for AI tools get worse results than the people paying nothing?",
+      "visual_prompt": "cinematic futuristic cyberpunk workstation glowing screens holographic AI assistant dark neon room 8k",
+      "on_screen_keyword": "$200 vs $0"
+    },
+    {
+      "id": 2,
+      "stage": "Rising Action",
+      "narration": "Everyone assumes the premium subscription unlocks the magic. Faster models, better output, and the secret sauce.",
+      "visual_prompt": "glowing premium subscription checkout screen with gold credit card and luxury velvet background",
+      "on_screen_keyword": "PREMIUM MAGIC"
+    },
+    {
+      "id": 3,
+      "stage": "Conflict",
+      "narration": "But here's the catch. Those paid tools quietly cap your usage, throttle your speed, and lock the best features behind a higher tier.",
+      "visual_prompt": "red warning meters and throttled speed gauges on dark server room screens digital glitch",
+      "on_screen_keyword": "THROTTLED"
+    },
+    {
+      "id": 4,
+      "stage": "Comeback",
+      "narration": "Meanwhile free open source models get updated every week by thousands of developers, and a simple prompt router sends each task to the best one.",
+      "visual_prompt": "ultra fast high tech data processing glowing golden fibers quantum computer hyper realistic",
+      "on_screen_keyword": "WEEKLY UPDATES"
+    },
+    {
+      "id": 5,
+      "stage": "Payoff",
+      "narration": "So the person paying zero gets more power, more speed, and no limits. The subscription was never the advantage.",
+      "visual_prompt": "golden trophy glowing on modern tech desk luxury minimalist celebration 3d render",
+      "on_screen_keyword": "ZERO LIMITS"
+    }
+  ],
+  "created_at": "2026-11-11 10:31:48"
+}

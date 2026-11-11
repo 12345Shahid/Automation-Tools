@@ -35,7 +35,13 @@ env/
 *.pem
 *.key
 
-# Local Run History & Private Sent Logs
+# Content Engine Outputs
+content_engine/outputs/*.mp4
+content_engine/outputs/*.jpg
+content_engine/outputs/*.png
+content_engine/outputs/*.aac
+!content_engine/outputs/.gitkeep
+
 data/email_sent_history.json
 data/email_sent_history.json.*
 
