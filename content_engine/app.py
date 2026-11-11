@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from pathlib import Path
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -49,16 +50,18 @@ async def list_videos():
 
 @app.post("/api/generate")
 async def generate_video_endpoint(req: GenerateRequest):
-    """Trigger short video generation synchronously or return result."""
+    """Trigger short video generation in threadpool to avoid event loop conflicts."""
     if not req.topic.strip():
         raise HTTPException(status_code=400, detail="Topic cannot be empty")
     
     try:
-        result = create_short_video(topic=req.topic.strip(), voice_key=req.voice)
+        # Run in separate thread so asyncio.run in voice generator works seamlessly
+        result = await asyncio.to_thread(create_short_video, req.topic.strip(), req.voice)
         result["video_url"] = f"/outputs/{result['filename']}"
         return {"status": "success", "video": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
