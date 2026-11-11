@@ -26,27 +26,30 @@ class LeadScraper:
 
     def _enrich_email_and_contacts(self, company_name: str, location: str, phone: Optional[str] = None) -> Optional[str]:
         """Search Google via Serper to find public email addresses for a local business."""
-        query = f'"{company_name}" {location} email OR "@gmail.com" OR "@yahoo.com"'
+        gl_code = "bd" if any(w in location.lower() for w in ["bangladesh", "dhaka", "chittagong", "sylhet"]) else "us"
+        query = f'"{company_name}" {location} email OR contact OR "info@"'
         try:
             resp = requests.post(
                 self.search_url,
                 headers=self.headers,
-                json={"q": query, "num": 5, "gl": "us", "hl": "en"},
+                json={"q": query, "num": 6, "gl": gl_code, "hl": "en"},
                 timeout=12
             )
             if resp.status_code != 200:
                 return None
 
             text = resp.text
-            # Regex for standard emails
-            raw_emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)
+            # Regex for standard emails with valid alphabetic TLD
+            raw_emails = re.findall(r"\b[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?\b", text)
             
             # Filter out search engine and system false positives
-            blacklisted_domains = ["google", "serper", "sentry", "example", "schema.org", "wix", ".png", ".jpg", "github"]
+            blacklisted_domains = ["google", "serper", "sentry", "example", "schema.org", "wix", "github", "cloudflare", "bootstrap", "npm"]
             valid_emails = [
                 e.strip().rstrip(".").lower() 
                 for e in raw_emails 
-                if not any(bad in e.lower() for bad in blacklisted_domains) and len(e.split("@")[0]) > 2
+                if not any(bad in e.lower() for bad in blacklisted_domains) 
+                and len(e.split("@")[0]) > 2
+                and not any(e.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".svg", ".webp", ".js", ".css"])
             ]
 
             return valid_emails[0] if valid_emails else None
@@ -74,12 +77,18 @@ class LeadScraper:
             try:
                 r = requests.get(page, headers=headers, timeout=6)
                 if r.status_code == 200:
-                    emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", r.text)
-                    valid = [e.strip().rstrip(".").lower() for e in emails if not any(b in e.lower() for b in blacklisted)]
+                    emails = re.findall(r"\b[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?\b", r.text)
+                    valid = [
+                        e.strip().rstrip(".").lower() 
+                        for e in emails 
+                        if not any(b in e.lower() for b in blacklisted)
+                        and len(e.split("@")[0]) > 2
+                        and not any(e.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".svg", ".webp", ".js", ".css"])
+                    ]
                     if valid:
                         # Prioritize contact@, info@, hello@
                         for v in valid:
-                            if any(prefix in v for prefix in ["contact", "info", "hello", "sales", "support"]):
+                            if any(prefix in v for prefix in ["contact", "info", "hello", "sales", "business", "support"]):
                                 return v
                         return valid[0]
             except Exception:
@@ -167,7 +176,7 @@ class LeadScraper:
     def find_it_companies(
         self,
         query: str = "IT consulting software development agency",
-        location: str = "Dallas, TX",
+        location: str = "Dhaka, Bangladesh",
         count: int = 10
     ) -> List[Dict[str, Any]]:
         """
@@ -175,15 +184,29 @@ class LeadScraper:
         """
         leads = []
         seen = set()
+        gl_code = "bd" if any(w in location.lower() for w in ["bangladesh", "dhaka", "chittagong", "sylhet"]) else "us"
 
-        try:
-            resp = requests.post(
-                self.places_url,
-                headers=self.headers,
-                json={"q": f"{query} {location}", "gl": "us", "hl": "en", "num": 20},
-                timeout=15
-            )
-            if resp.status_code == 200:
+        search_variations = [
+            f"{query} {location}",
+            f"top software development companies in {location}",
+            f"custom software agency {location}",
+            f"IT companies {location}"
+        ]
+
+        for q_term in search_variations:
+            if len([l for l in leads if l.get("email")]) >= count:
+                break
+
+            try:
+                resp = requests.post(
+                    self.places_url,
+                    headers=self.headers,
+                    json={"q": q_term, "gl": gl_code, "hl": "en", "num": 20},
+                    timeout=15
+                )
+                if resp.status_code != 200:
+                    continue
+
                 places = resp.json().get("places", [])
                 for p in places:
                     title = p.get("title", "").strip()
@@ -191,14 +214,20 @@ class LeadScraper:
                         continue
                     seen.add(title.lower())
 
+                    # Clean company title for email subject and body
+                    clean_title = re.sub(r"\s*\([^)]*\)", "", title)
+                    clean_title = re.sub(r"\s*-\s*Best Software.*", "", clean_title, flags=re.I)
+                    clean_title = clean_title.strip()
+
                     website = p.get("website", "")
                     found_email = self._crawl_website_for_email(website) if website else None
                     if not found_email:
-                        found_email = self._enrich_email_and_contacts(title, location, p.get("phoneNumber"))
+                        found_email = self._enrich_email_and_contacts(clean_title, location, p.get("phoneNumber"))
 
-                    leads.append({
-                        "company": title,
-                        "name": "Team",
+                    lead_data = {
+                        "company": clean_title,
+                        "raw_company": title,
+                        "name": f"{clean_title} Team",
                         "phone": p.get("phoneNumber", "N/A"),
                         "address": p.get("address", "N/A"),
                         "website": website,
@@ -208,12 +237,14 @@ class LeadScraper:
                         "email": found_email or "",
                         "category": "IT / Software Agency",
                         "target_type": "it_agency_contractor"
-                    })
+                    }
+                    leads.append(lead_data)
 
-                    if len(leads) >= count:
+                    valid_email_leads = [l for l in leads if l.get("email")]
+                    if len(valid_email_leads) >= count:
                         break
-        except Exception:
-            pass
+            except Exception:
+                continue
 
         return leads
 

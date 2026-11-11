@@ -37,16 +37,36 @@ FALLBACK_TEMPLATES = {
     ],
     "it_contractor": [
         {
-            "subject": "Independent contractor support for {company_subject}'s dev team",
-            "body_intro": "Hope you're having a productive week.",
-            "pitch": "I'm an independent full-stack software engineer reaching out to see if {company} ever needs reliable subcontracting support for client web and software projects. I deliver high-quality, production-grade code with fast turnaround at competitive contractor rates to help your core team handle overflow work smoothly.",
-            "cta": "Would you be open to a brief 5-minute chat or connecting on LinkedIn to keep in touch for upcoming projects?"
+            "subject": "Subcontracting & overflow dev partnership for {company_subject}",
+            "body_intro": "Hope you and the team at {company} are having a productive week.",
+            "pitch": "We are a small, agile engineering agency and independent contracting team. We partner with established IT firms like {company} to handle client web, mobile, and custom software projects at lower, flexible contractor rates—delivering equal or superior code quality, clean architecture, and rapid turnaround so your core team can scale capacity without added overhead.",
+            "cta": "Would you or your project delivery lead be open to a brief 5-minute chat or keeping our portfolio on file for upcoming overflow projects?"
         },
         {
-            "subject": "Overflow developer capacity for {company_subject}",
-            "body_intro": "I've been following {company}'s work and wanted to introduce myself directly.",
-            "pitch": "I provide senior full-stack development as an independent contractor for digital and IT agencies. Whether you have overflow client deadlines or need an extra developer on short notice, I offer high-quality execution at flexible contractor rates.",
-            "cta": "Would you be open to a quick 5-minute intro call or keeping my portfolio on file for your next project?"
+            "subject": "Independent contractor / development partner for {company_subject}",
+            "body_intro": "I've been following {company}'s impressive software work in Bangladesh and wanted to reach out directly.",
+            "pitch": "We run a boutique engineering team collaborating as independent subcontractors for digital agencies and IT consultancies. When you win new client projects or face tight deadlines, we can execute full builds or specific modules at competitive contractor pricing with top-tier engineering standards and dedicated communication.",
+            "cta": "Would you be open to a quick 5-minute intro or reviewing a couple of our past case studies to see if there's a fit for upcoming projects?"
+        },
+        {
+            "subject": "Dev capacity & white-label subcontracting for {company_subject}",
+            "body_intro": "Hope everything is going smoothly with your client deliverables at {company}.",
+            "pitch": "We are an agile software development agency offering independent contractor support for growing IT firms. Our goal is simple: we take on client projects you receive and execute them at highly affordable rates while matching or exceeding the build quality and velocity of in-house engineers.",
+            "cta": "Could we connect for a brief 5-minute introductory call this week to explore how we can support your upcoming pipeline?"
+        }
+    ],
+    "agency_subcontractor": [
+        {
+            "subject": "Subcontracting & overflow dev partnership for {company_subject}",
+            "body_intro": "Hope you and the team at {company} are having a productive week.",
+            "pitch": "We are a small, agile engineering agency and independent contracting team. We partner with established IT firms like {company} to handle client web, mobile, and custom software projects at lower, flexible contractor rates—delivering equal or superior code quality, clean architecture, and rapid turnaround so your core team can scale capacity without added overhead.",
+            "cta": "Would you or your project delivery lead be open to a brief 5-minute chat or keeping our portfolio on file for upcoming overflow projects?"
+        },
+        {
+            "subject": "Independent contractor / development partner for {company_subject}",
+            "body_intro": "I've been following {company}'s impressive software work in Bangladesh and wanted to reach out directly.",
+            "pitch": "We run a boutique engineering team collaborating as independent subcontractors for digital agencies and IT consultancies. When you win new client projects or face tight deadlines, we can execute full builds or specific modules at competitive contractor pricing with top-tier engineering standards and dedicated communication.",
+            "cta": "Would you be open to a quick 5-minute intro or reviewing a couple of our past case studies to see if there's a fit for upcoming projects?"
         }
     ]
 }
@@ -87,6 +107,13 @@ def generate_fallback_email(email: str, name: str, company: str, sender_name: st
     pitch = template["pitch"].format(company=company, name=name)
     cta = template["cta"].format(company=company, name=name)
     
+    if campaign_type in ("it_contractor", "agency_subcontractor"):
+        role_title = "Independent Contractor & Software Agency Lead"
+    elif campaign_type == "roofer_no_website":
+        role_title = "Web Development Consultant"
+    else:
+        role_title = "Full-Stack Web Developer"
+
     body_text = f"""Hi {name},
 
 {intro}
@@ -97,7 +124,7 @@ def generate_fallback_email(email: str, name: str, company: str, sender_name: st
 
 Best regards,
 {sender_name}
-Full-Stack Web Developer
+{role_title}
 """
 
     body_html = f"""<!DOCTYPE html>
@@ -117,7 +144,7 @@ Full-Stack Web Developer
   <p>{cta}</p>
   <div class="footer">
     <strong>{sender_name}</strong><br>
-    <span>Full-Stack Web Developer</span>
+    <span>{role_title}</span>
   </div>
 </body>
 </html>"""

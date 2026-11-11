@@ -90,7 +90,7 @@ def test_smtp_cmd(sender: EmailSender):
             border_style="red"
         ))
 
-def run_dry_run(recipients: List[Dict[str, str]], sender: EmailSender):
+def run_dry_run(recipients: List[Dict[str, str]], sender: EmailSender, campaign_type: Optional[str] = None):
     """Generate and preview emails without sending them."""
     console.print(Panel(
         f"[bold cyan]🔍 DRY RUN PREVIEW MODE[/bold cyan]\n"
@@ -114,7 +114,8 @@ def run_dry_run(recipients: List[Dict[str, str]], sender: EmailSender):
             email=email,
             name=lead.get("name"),
             company=lead.get("company"),
-            custom_notes=lead.get("notes")
+            custom_notes=lead.get("notes"),
+            campaign_type=campaign_type
         )
         
         snippet = draft["body_text"].replace("\n", " ")[:90] + "..."
@@ -128,7 +129,8 @@ def run_dry_run(recipients: List[Dict[str, str]], sender: EmailSender):
             email=first_lead["email"],
             name=first_lead.get("name"),
             company=first_lead.get("company"),
-            custom_notes=first_lead.get("notes")
+            custom_notes=first_lead.get("notes"),
+            campaign_type=campaign_type
         )
         console.print("\n[bold]Sample Full Email Preview (Lead #1):[/bold]")
         console.print(Panel(
@@ -145,7 +147,9 @@ def run_send_campaign(
     sender: EmailSender,
     force: bool = False,
     delay_min: int = 8,
-    delay_max: int = 15
+    delay_max: int = 15,
+    auto_confirm: bool = False,
+    campaign_type: Optional[str] = None
 ):
     """Send out cold emails to the recipients list with human delays."""
     console.print(Panel(
@@ -157,7 +161,7 @@ def run_send_campaign(
         border_style="green"
     ))
 
-    if len(recipients) > 1:
+    if len(recipients) > 1 and not auto_confirm:
         if not Confirm.ask(f"[bold yellow]Do you want to proceed and send to {len(recipients)} leads?[/bold yellow]"):
             console.print("[dim]Cancelled by user.[/dim]")
             return
@@ -179,7 +183,8 @@ def run_send_campaign(
             email=email,
             name=lead.get("name"),
             company=lead.get("company"),
-            custom_notes=lead.get("notes")
+            custom_notes=lead.get("notes"),
+            campaign_type=campaign_type
         )
 
         console.print(f"  [dim]Subject:[/dim] {draft['subject']}")
@@ -386,6 +391,8 @@ def main():
     parser.add_argument("--file", type=str, default="recipients.txt", help="Path to recipients list (.txt or .csv)")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of emails to process")
     parser.add_argument("--force", action="store_true", help="Send even if email was already contacted")
+    parser.add_argument("-y", "--yes", action="store_true", help="Auto-confirm without prompt")
+    parser.add_argument("--campaign-type", type=str, default=None, help="Campaign template type (e.g. 'it_contractor', 'agency_subcontractor', 'roofer_no_website')")
     parser.add_argument("--test-smtp", action="store_true", help="Test SMTP connection and exit")
     parser.add_argument("--delay-min", type=int, default=8, help="Minimum seconds between emails")
     parser.add_argument("--delay-max", type=int, default=15, help="Maximum seconds between emails")
@@ -447,10 +454,12 @@ def main():
             sender=sender,
             force=args.force,
             delay_min=args.delay_min,
-            delay_max=args.delay_max
+            delay_max=args.delay_max,
+            auto_confirm=args.yes,
+            campaign_type=args.campaign_type
         )
     else:
-        run_dry_run(recipients, sender)
+        run_dry_run(recipients, sender, campaign_type=args.campaign_type)
         console.print("\n[bold cyan]💡 Tip:[/bold cyan] When you're ready to dispatch real emails, run:\n   [bold green]uv run python email_agent.py --send[/bold green]\n   or start the chat assistant:\n   [bold green]uv run python email_agent.py --chat[/bold green]\n")
 
 if __name__ == "__main__":
