@@ -40,6 +40,7 @@ content_engine/outputs/*.mp4
 content_engine/outputs/*.jpg
 content_engine/outputs/*.png
 content_engine/outputs/*.aac
+content_engine/outputs/*.json
 content_engine/outputs/work_*
 !content_engine/outputs/.gitkeep
 

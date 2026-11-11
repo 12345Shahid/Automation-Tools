@@ -23,6 +23,10 @@ KIE_MODEL = os.getenv("KIE_MODEL", "deepseek-v4-1-flash")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
+# External Video & Media Providers
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "")
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
+
 # Video Specs (YouTube Shorts / Reels / TikTok)
 VIDEO_WIDTH = 1080
 VIDEO_HEIGHT = 1920

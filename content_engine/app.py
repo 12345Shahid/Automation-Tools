@@ -9,9 +9,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from content_engine import config
-from content_engine.engine import create_short_video
-from content_engine.core.director import generate_director_roadmap
-from content_engine.core.raw_editor import transform_raw_video
+from content_engine.agents import (
+    run_option_a_pipeline,
+    run_option_b_roadmap,
+    run_option_b_transform
+)
 
 app = FastAPI(title="ShortsEngine AI", description="Autonomous & Smart Editor Looped-Arc Content Engine")
 
@@ -64,7 +66,7 @@ async def generate_video_endpoint(req: GenerateRequest):
         raise HTTPException(status_code=400, detail="Topic cannot be empty")
     
     try:
-        result = await asyncio.to_thread(create_short_video, req.topic.strip(), req.voice)
+        result = await asyncio.to_thread(run_option_a_pipeline, req.topic.strip(), req.voice)
         result["video_url"] = f"/outputs/{result['filename']}"
         return {"status": "success", "video": result}
     except Exception as e:
@@ -77,7 +79,7 @@ async def director_roadmap_endpoint(req: RoadmapRequest):
         raise HTTPException(status_code=400, detail="Source content or URL cannot be empty")
     
     try:
-        roadmap = await asyncio.to_thread(generate_director_roadmap, req.source_input.strip())
+        roadmap = await asyncio.to_thread(run_option_b_roadmap, req.source_input.strip())
         return {"status": "success", "roadmap": roadmap}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -107,7 +109,7 @@ async def transform_raw_endpoint(
 
     try:
         res = await asyncio.to_thread(
-            transform_raw_video,
+            run_option_b_transform,
             str(raw_path),
             script_text.strip(),
             str(final_output_path),
