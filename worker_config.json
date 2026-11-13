@@ -1,0 +1,14 @@
+{
+  "industry": "Roofing contractors",
+  "location": "Dallas, TX",
+  "count": 2,
+  "started_at": "2026-11-13T18:03:32.238735",
+  "status": "completed",
+  "completed_at": "2026-11-13T18:04:05.233251",
+  "stats": {
+    "processed": 2,
+    "live_pickups": 2,
+    "voicemails_cut": 0,
+    "unanswered": 0
+  }
+}

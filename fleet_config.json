@@ -1,0 +1,45 @@
+{
+  "agents": {
+    "whatsapp-voice-agent": {
+      "name": "WhatsApp Multi-Line Voice & Text Outreach Agent",
+      "enabled": true,
+      "description": "Discovers local leads via Google Maps, rotates across 3 US lines, places AI calls, and drops WhatsApp text fallbacks.",
+      "script": "agent_worker.py",
+      "last_run": null
+    },
+    "email-agent": {
+      "name": "Autonomous B2B Email Outreach Agent",
+      "enabled": true,
+      "description": "Cold email outreach campaigns with anti-spam delays, lead scraping, and inbox monitoring.",
+      "script": "../email_agent.py",
+      "last_run": "2026-11-13T16:49:33"
+    }
+  },
+  "schedules": [
+    {
+      "agent": "whatsapp-voice-agent",
+      "time": "10:00",
+      "days": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "batch_size": 25,
+      "industry": "Roofing contractors",
+      "location": "Dallas, TX"
+    },
+    {
+      "agent": "email-agent",
+      "time": "14:00",
+      "days": [
+        "Monday",
+        "Wednesday",
+        "Friday"
+      ],
+      "batch_size": 10,
+      "campaign_type": "it_contractor"
+    }
+  ]
+}
