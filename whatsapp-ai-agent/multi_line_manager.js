@@ -11,7 +11,7 @@ const app = express();
 const PORT = process.env.WHATSAPP_PORT || 3001;
 
 const LINES = [
-    { id: 'line_1', name: 'Sarah Line 1', phone: process.env.SIGNALWIRE_LINE_1 || '+14694616899' },
+    { id: 'line_1', name: 'Sarah Line 1 (+8801746654426)', phone: process.env.WHATSAPP_LINE_1 || process.env.SIGNALWIRE_LINE_1 || '+8801746654426' },
     { id: 'line_2', name: 'Sarah Line 2', phone: process.env.SIGNALWIRE_LINE_2 || '+19453260478' },
     { id: 'line_3', name: 'Sarah Line 3', phone: process.env.SIGNALWIRE_LINE_3 || '+19453260334' }
 ];

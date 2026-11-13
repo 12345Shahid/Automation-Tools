@@ -32,8 +32,8 @@ KIE_MODEL = os.environ.get("KIE_MODEL", "deepseek-v4-1-flash")
 PHONE_LINES = [
     {
         "id": "line_1",
-        "phone_number": os.environ.get("SIGNALWIRE_LINE_1", "+14694616899"),
-        "display_name": "Sarah Line 1",
+        "phone_number": os.environ.get("WHATSAPP_LINE_1") or os.environ.get("SIGNALWIRE_LINE_1", "+8801746654426"),
+        "display_name": "Sarah Line 1 (+8801746654426)",
         "cooldown_seconds": 45,
         "last_used": 0,
         "is_authenticated": False
