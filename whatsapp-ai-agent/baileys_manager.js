@@ -240,6 +240,63 @@ app.post('/api/send-text', async (req, res) => {
     }
 });
 
+app.post('/api/send-voice', async (req, res) => {
+    const { to, text, audioPath, voice } = req.body;
+    if (!to || (!text && !audioPath)) {
+        return res.status(400).json({ ok: false, error: 'Missing destination or text/audioPath' });
+    }
+    if (!isConnected || !sock) {
+        return res.status(503).json({ ok: false, error: 'WhatsApp Line 1 not connected' });
+    }
+
+    try {
+        const clean = to.replace(/[^0-9]/g, '');
+        const jid = `${clean}@s.whatsapp.net`;
+        let targetAudio = audioPath;
+
+        if (text && !audioPath) {
+            const tempBase = `/tmp/voice_${Date.now()}`;
+            const mp3Path = `${tempBase}.mp3`;
+            const oggPath = `${tempBase}.ogg`;
+            const selectedVoice = voice || 'en-US-AriaNeural';
+
+            const { execSync } = require('child_process');
+            fs.writeFileSync(`${tempBase}.txt`, text, 'utf8');
+            execSync(`edge-tts --voice ${selectedVoice} --file ${tempBase}.txt --write-media ${mp3Path}`);
+            execSync(`ffmpeg -y -i ${mp3Path} -c:a libopus -b:a 32k ${oggPath}`);
+            targetAudio = oggPath;
+            try { fs.unlinkSync(`${tempBase}.txt`); fs.unlinkSync(mp3Path); } catch (e) {}
+        }
+
+        const buffer = fs.readFileSync(targetAudio);
+        const sent = await sock.sendMessage(jid, {
+            audio: buffer,
+            mimetype: 'audio/ogg; codecs=opus',
+            ptt: true
+        });
+
+        console.log(`🎙️ [Line 1 Sent Voice Note] Delivered PTT voice message to ${clean}`);
+        return res.json({ ok: true, id: sent.key.id, status: 'sent', type: 'voice_note' });
+    } catch (e) {
+        console.error('Failed to send voice note:', e.message);
+        return res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+app.post('/api/create-call-link', async (req, res) => {
+    if (!isConnected || !sock) {
+        return res.status(503).json({ ok: false, error: 'WhatsApp Line 1 not connected' });
+    }
+    try {
+        const token = await sock.createCallLink('voice');
+        const link = `https://call.whatsapp.com/voice/${token}`;
+        return res.json({ ok: true, token, link });
+    } catch (e) {
+        console.error('Failed to create call link:', e.message);
+        return res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
 app.post('/api/call', async (req, res) => {
     const { to } = req.body;
     if (!to) {
