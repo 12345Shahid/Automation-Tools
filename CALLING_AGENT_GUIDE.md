@@ -1,7 +1,8 @@
 # OmniCall AI: Autonomous Calling & Omnichannel Outreach Agent Manual
 
 > [!NOTE]
-> **Status**: Pipeline and agent infrastructure fully built and verified. Gateway temporarily paused for WhatsApp linking cooldown. This document serves as the master blueprint to resume and deploy seamlessly.
+> **Status**: 🟢 **ONLINE & FULLY OPERATIONAL**  
+> Line 1 (`+8801746654426`) is paired and connected via `@whiskeysockets/baileys` on PM2 `omnicall-manager`. Live outreach and WhatsApp message tests to `+8801917427815` succeeded with Supabase telemetry logging.
 
 ---
 
@@ -10,6 +11,7 @@
 OmniCall AI (VoicePulse AI) is an autonomous, multi-agent outbound business development engine designed to replace costly carrier telephony (e.g., SignalWire/Twilio per-minute charges) with zero-cost WhatsApp VoIP calling and smart automated text follow-ups.
 
 ### Key Capabilities
+* **Baileys Direct WebSocket Gateway**: High-performance headless WhatsApp connection consuming $<150$MB RAM with instantaneous 8-digit pairing code generation and zero Puppeteer overhead.
 * **Serper Google Maps Lead Scraper**: Discovers local contractors and commercial targets, normalizes phone numbers to E.164, and avoids duplicate calls via Supabase checks.
 * **Sarah Persona Consultation State Machine**: Outbound AI consultant pitching a free custom 24/7 AI Lead Assistant.
 * **Answering Machine Detection (AMD)**: Detects voicemails within 2.0 seconds and triggers an instant hangup to avoid wasting bandwidth.
@@ -31,7 +33,7 @@ flowchart TD
     subgraph Agent_Core["2. Outreach Execution Engine"]
         C["Background Daemon\n(agent_worker.py)"] -->|Pulls Pending Leads| B
         C --> D["WhatsApp Voice Agent\n(whatsapp_voice_agent.py)"]
-        D -->|Rotates Lines| E["Line Gateway\n(multi_line_manager.js)"]
+        D -->|Rotates Lines| E["Baileys Gateway :3001\n(baileys_manager.js)"]
     end
 
     subgraph Telemetry["3. Analytics & Master Fleet"]
@@ -54,59 +56,52 @@ All project files are synced locally at `voicepulse-ai/` and on the VPS at `/var
 | [master_orchestrator.py](file:///var/www/omnicall-ai/master_orchestrator.py) | Multi-agent fleet manager and Supabase analytics aggregator generating Daily Executive Reports. |
 | [test_outreach.py](file:///var/www/omnicall-ai/test_outreach.py) | CLI utility to trigger an instant call and message cycle to a specific test phone number. |
 | [phone_lines.json](file:///var/www/omnicall-ai/phone_lines.json) | Configuration of line inventory (Line 1: `+8801746654426`). |
-| [multi_line_manager.js](file:///var/www/omnicall-ai/whatsapp-ai-agent/multi_line_manager.js) | Express pairing portal (`port 3001`) with live QR code display. |
+| [baileys_manager.js](file:///var/www/omnicall-ai/whatsapp-ai-agent/baileys_manager.js) | Lightweight Baileys pairing & REST gateway on port 3001 with 8-digit pairing code & QR support. |
 | [.env](file:///var/www/omnicall-ai/.env) | Secrets: Supabase URL, Service Role Key, Serper API Key, and KIE LLM API Key. |
 
 ---
 
-## 4. Technical Diagnosis: Device Pairing Timeout
+## 4. Current Operational Status
 
-### What Happened During the Attempt:
-1. **Puppeteer 30s Injection Timeout**:  
-   The gateway was running `whatsapp-web.js`, which launches a full headless Google Chrome browser on the VPS. When the QR code was scanned, WhatsApp Web began deserializing chat caches. On a headless Linux server without hardware graphics acceleration, this initialization exceeded Puppeteer's hardcoded 30,000ms injection timeout (`TimeoutError: Waiting failed: 30000ms exceeded at Client.inject`).
-2. **Aborted Handshake & RAM Cut**:  
-   Because the screen stayed on *"Logging in..."* for over a minute, killing the mobile app interrupted the cryptographic key exchange midway.
-3. **WhatsApp Temporary Anti-Abuse Lockout**:  
-   WhatsApp servers flagged the interrupted handshake as a corrupted session attempt, temporarily rejecting new connection attempts with *"Can't connect, please try again later"*. This is a standard WhatsApp security mechanism that automatically clears after a short cooldown (typically 15 to 30 minutes).
-
-### Permanent Solution on Resumption:
-When resuming this module, we will replace `whatsapp-web.js` with **`@whiskeysockets/baileys`** (the same lightweight engine used in `stealth-copilot`):
-* **Direct WebSocket Connection**: Zero Chrome/Puppeteer overhead (uses ~20MB RAM instead of ~500MB).
-* **Instant Handshake**: Connects in under 2 seconds without script-injection timeouts.
-* **Direct 8-Digit Pairing Code**: Allows linking by simply entering an 8-character code in WhatsApp without relying on the camera QR scanner.
+- **Line 1 WhatsApp Account**: `+8801746654426` (`user: 8801746654426:3@s.whatsapp.net`)
+- **PM2 Service**: `omnicall-manager` (online on port `3001`)
+- **Web Dashboard**: `https://omnicall.187.52.124.4.sslip.io` (`🟢 CONNECTED & READY`)
+- **Latest Verified Test Target**: `+8801917427815`
+  - WhatsApp Text Delivery: `{"ok":true,"id":"3EB0D3248D0CCC7D890841","status":"sent"}`
+  - Supabase Call Record: `test_1794836204` $\rightarrow$ `video_requested` (86.3s)
 
 ---
 
-## 5. Quick-Start Resumption Guide
+## 5. Operations & Execution Commands
 
-When returning to this project, execute the following steps to test and launch:
-
-### Step 1: Verify the Cooldown has Cleared
-Ensure at least 30 minutes have elapsed since the last pairing attempt on your phone.
-
-### Step 2: Start the Gateway
+### A. Run an Outreach Test to Any Number
 ```bash
-ssh antigravity-vps "pm2 start /var/www/omnicall-ai/whatsapp-ai-agent/multi_line_manager.js --name omnicall-manager"
+ssh antigravity-vps "python3 /var/www/omnicall-ai/test_outreach.py --to '+8801917427815' --name 'Hasan' --company 'Hasan Enterprise'"
 ```
 
-### Step 3: Link Your Device
-1. Open the portal: **`https://omnicall.187.52.124.4.sslip.io`**
-2. In WhatsApp on `01746654426`: Tap **Linked Devices** $\rightarrow$ **Link a Device** $\rightarrow$ Scan the QR code.
-3. Verify status changes to `🟢 CONNECTED & READY`.
-
-### Step 4: Run a Single-Number Test Call
+### B. Send an Instant WhatsApp Text via REST API
 ```bash
-ssh antigravity-vps "python3 /var/www/omnicall-ai/test_outreach.py --to '+8801xxxxxxxxx' --name 'Hasan' --company 'Test Co'"
+ssh antigravity-vps 'curl -s -X POST http://localhost:3001/api/send-text -H "Content-Type: application/json" -d "{\"to\": \"+8801917427815\", \"text\": \"Hello from OmniCall AI Line 1!\"}"'
 ```
 
-### Step 5: Launch Automated Campaign
+### C. Run Real Lead Scraper (Google Maps)
 ```bash
-# Scrape fresh leads
-ssh antigravity-vps "python3 /var/www/omnicall-ai/pipeline_scraper.py --query 'Roofing contractors in Dallas, TX' --limit 10"
+ssh antigravity-vps "python3 /var/www/omnicall-ai/pipeline_scraper.py --query 'Plumbers in Houston, TX' --limit 10"
+```
 
-# Start detached background daemon
+### D. Start & Monitor Background Outbound Daemon
+```bash
+# Start background dialing daemon
 ssh antigravity-vps "python3 /var/www/omnicall-ai/agent_worker.py start"
 
-# Check daemon status
+# Check daemon progress
 ssh antigravity-vps "python3 /var/www/omnicall-ai/agent_worker.py status"
+
+# Stop daemon when finished
+ssh antigravity-vps "python3 /var/www/omnicall-ai/agent_worker.py stop"
+```
+
+### E. Run Master Multi-Agent Orchestrator
+```bash
+ssh antigravity-vps "python3 /var/www/omnicall-ai/master_orchestrator.py --daily-report"
 ```
