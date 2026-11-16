@@ -23,6 +23,8 @@ test_call_results.jsonl
 phone_line_states.json
 campaign_schedule.json
 campaign_human_responses.json
+browser-caller/profile/
+whatsapp-ai-agent/auth_info_*/
 
 # Intermediate / Redundant Data Export CSVs
 *_connected_*.csv
