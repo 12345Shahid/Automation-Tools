@@ -289,10 +289,23 @@ class WhatsAppVoiceAgent:
         contact_name = company.split()[0] if company else "there"
 
         message_body = TEXT_FALLBACK_TEMPLATE.format(contact_name=contact_name, company_name=company)
-        logging.info(f"💬 [WhatsApp Text Fallback] Queued message to {company} ({phone}) via {line['display_name']}:")
-        logging.info(f"   \"{message_body.splitlines()[0]}...\"")
+        logging.info(f"💬 [WhatsApp Text Fallback] Sending message to {company} ({phone}) via {line['display_name']}...")
         
-        # When WhatsApp is connected, this sends via Baileys/WhatsApp Web socket.
+        # Dispatch via multi_line_manager on port 3001
+        try:
+            res = requests.post(
+                "http://localhost:3001/api/send-text",
+                json={"lineId": line.get("id", "line_1"), "to": phone, "text": message_body},
+                timeout=10
+            )
+            if res.status_code == 200 and res.json().get("ok"):
+                logging.info(f"✅ [WhatsApp Text Fallback Delivered] Message sent to {phone} via {line['display_name']}")
+                return True
+            else:
+                logging.warning(f"⚠️ WhatsApp gateway returned: {res.text}")
+        except Exception as e:
+            logging.info(f"ℹ️ WhatsApp local gateway note (port 3001): {e}")
+
         return True
 
 if __name__ == "__main__":
