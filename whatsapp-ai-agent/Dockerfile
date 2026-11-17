@@ -1,0 +1,26 @@
+# Use official Google Puppeteer Docker image (includes Node.js, Chrome for Testing, and all Linux DBus/audio/font dependencies)
+FROM ghcr.io/puppeteer/puppeteer:latest
+
+# Switch to root to install dependencies and configure permissions
+USER root
+
+WORKDIR /app
+
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm install --omit=dev
+
+# Copy application source code
+COPY . .
+
+# Create directory for persistent WhatsApp session storage and grant ownership to pptruser
+RUN mkdir -p /app/.wwebjs_auth && chown -R pptruser:pptruser /app
+
+# Switch back to non-root pptruser for security
+USER pptruser
+
+# Tell Puppeteer to skip downloading Chromium because the base image already has it
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# Start the auto-saver service
+CMD ["npm", "start"]

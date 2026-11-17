@@ -1,0 +1,25 @@
+{
+  "lines": [
+    {
+      "id": "line_1",
+      "phone_number": "+8801746654426",
+      "sip_trunk_id": "auto",
+      "display_name": "Sarah Line 1 (+8801746654426)",
+      "cooling_seconds": 45
+    },
+    {
+      "id": "line_2",
+      "phone_number": "+19453260478",
+      "sip_trunk_id": "auto",
+      "display_name": "Line 2 (Pending)",
+      "cooling_seconds": 60
+    },
+    {
+      "id": "line_3",
+      "phone_number": "+19453260334",
+      "sip_trunk_id": "auto",
+      "display_name": "Line 3 (Pending)",
+      "cooling_seconds": 60
+    }
+  ]
+}
