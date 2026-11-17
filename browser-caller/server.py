@@ -163,6 +163,15 @@ def api_call():
     res = caller.make_voice_call(target)
     return jsonify(res)
 
+
+@app.route("/api/screenshot", methods=["GET"])
+def api_screenshot():
+    from flask import send_file
+    path = caller.take_screenshot()
+    if path and os.path.exists(path):
+        return send_file(path, mimetype="image/png")
+    return jsonify({"ok": False, "error": "Failed to take screenshot"}), 500
+
 @app.route("/api/hangup", methods=["POST"])
 def api_hangup():
     res = caller.hangup()
