@@ -11,7 +11,8 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
-    Browsers
+    Browsers,
+    downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -113,14 +114,65 @@ async function startBaileys() {
         }
     });
 
-    // Inbound text message listener
+    // Inbound text & voice message listener with omnichannel memory dispatch
     sock.ev.on('messages.upsert', async ({ messages: newMsgs, type }) => {
         if (type !== 'notify') return;
         for (const msg of newMsgs) {
             if (msg.key.fromMe) continue;
+            const remoteJid = msg.key.remoteJid || '';
+            if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') continue;
+
+            const cleanPhone = remoteJid.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '');
+
+            // Decoy Persona Protection: NEVER auto-reply to girlfriend/personal numbers
+            if (cleanPhone === '8801712394812' || cleanPhone === '01712394812') {
+                console.log(`🛡️ [Protected Contact] Inbound from ${cleanPhone} bypassed from AI memory.`);
+                continue;
+            }
+
             const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+            const hasAudio = !!(msg.message?.audioMessage);
+
             if (text) {
-                console.log(`📥 [Line 1 Inbound] from ${msg.key.remoteJid}: ${text}`);
+                console.log(`📥 [Line 1 Inbound Text] from ${cleanPhone}: "${text}"`);
+                try {
+                    // Forward to Inbound Memory Agent on port 3003
+                    fetch('http://127.0.0.1:3003/api/inbound', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            from: cleanPhone,
+                            type: 'text',
+                            text: text
+                        })
+                    }).catch(e => console.error('Inbound agent dispatch error:', e.message));
+                } catch (e) {
+                    console.error('Inbound agent forward failed:', e.message);
+                }
+            } else if (hasAudio) {
+                console.log(`🎙️ [Line 1 Inbound Voice Note] from ${cleanPhone}. Downloading audio...`);
+                try {
+                    const buffer = await downloadMediaMessage(
+                        msg,
+                        'buffer',
+                        {},
+                        { logger: pino({ level: 'silent' }) }
+                    );
+                    if (buffer) {
+                        const b64 = buffer.toString('base64');
+                        fetch('http://127.0.0.1:3003/api/inbound', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                from: cleanPhone,
+                                type: 'voice',
+                                audio_base64: b64
+                            })
+                        }).catch(e => console.error('Voice note dispatch error:', e.message));
+                    }
+                } catch (e) {
+                    console.error('Failed to download/forward voice note:', e.message);
+                }
             }
         }
     });
