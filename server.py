@@ -91,28 +91,41 @@ HTML_TEMPLATE = """
         </div>
 
         <div id="pairingCard" class="card" style="{% if caller.is_connected %}display:none;{% endif %}">
-            <h2 style="margin-top: 0; font-size: 18px;">📱 Link WhatsApp Web Companion Device</h2>
+            <h2 style="margin-top: 0; font-size: 20px;">📱 Link WhatsApp with 8-Digit Code</h2>
             <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">
-                On your phone (<b>+880 {{ caller.local_number }}</b>):<br>
-                1. Open <b>WhatsApp</b> &rarr; tap <b>Settings</b> (or 3 dots).<br>
-                2. Tap <b>Linked Devices</b> &rarr; tap <b>Link a Device</b>.<br>
-                3. Scan the QR code below or enter the 8-digit code:
+                Link Line 1 (<b>+880 {{ caller.local_number }}</b>) using an 8-digit pairing code on your phone without scanning a QR code:
             </p>
 
-            <div id="codeDisplayBox" class="code-box" style="display:none;">
-                <div style="font-size: 13px; color: #1e40af; font-weight: 600; margin-bottom: 8px;">ENTER THIS 8-DIGIT CODE ON YOUR PHONE:</div>
-                <div id="codeText" class="code-text">----</div>
+            <div id="codeDisplayBox" class="code-box" style="{% if caller.pairing_code %}display:block;{% else %}display:none;{% endif %}">
+                <div style="font-size: 13px; color: #1e40af; font-weight: 700; margin-bottom: 8px;">ENTER THIS 8-DIGIT CODE IN WHATSAPP ON YOUR PHONE:</div>
+                <div id="codeText" class="code-text">{{ caller.pairing_code or '----' }}</div>
             </div>
 
-            <div style="text-align: center; margin-top: 16px;">
-                <img id="qrImage" src="/api/screenshot" style="max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;" />
+            <div style="text-align: center; margin: 20px 0;">
+                <button id="requestCodeBtn" class="btn btn-blue" style="font-size: 16px; padding: 14px 28px;" onclick="requestCode()">🔢 Generate 8-Digit Code for +880 {{ caller.local_number }}</button>
+            </div>
+            <div id="pairingStatusText" style="text-align: center; margin-top: 10px; font-size: 14px; font-weight: 600; color: #4b5563;"></div>
+
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 20px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #1f2937;">📋 Instructions on your phone (+880 {{ caller.local_number }}):</h4>
+                <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #4b5563; line-height: 1.8;">
+                    <li>Open <b>WhatsApp</b> &rarr; tap <b>Settings</b> &rarr; tap <b>Linked Devices</b>.</li>
+                    <li><b>IMPORTANT:</b> If you see older linked devices listed (e.g. Google Chrome), tap and log out of them first so WhatsApp has an open device slot.</li>
+                    <li>Tap <b>Link a Device</b>.</li>
+                    <li>Tap <b>"Link with phone number instead"</b> at the bottom of your phone screen.</li>
+                    <li>Enter the 8-digit code shown above!</li>
+                </ol>
             </div>
 
-            <div style="display: flex; gap: 12px; justify-content: center; margin-top: 16px;">
-                <button class="btn btn-blue" onclick="refreshQr()">🔄 Refresh QR Code</button>
-                <button id="requestCodeBtn" class="btn" style="background:#4f46e5;" onclick="requestCode()">🔢 Generate 8-Digit Code</button>
-            </div>
-            <div id="pairingStatusText" style="text-align: center; margin-top: 12px; font-size: 13px; font-weight: 600; color: #4b5563;"></div>
+            <details style="margin-top: 20px; text-align: center;">
+                <summary style="font-size: 13px; color: #6b7280; cursor: pointer;">Prefer QR code instead? Click here</summary>
+                <div style="text-align: center; margin-top: 16px;">
+                    <img id="qrImage" src="/api/screenshot" style="max-width: 80%; border: 1px solid #e5e7eb; border-radius: 8px;" />
+                    <div style="margin-top: 10px;">
+                        <button class="btn" style="background:#6b7280;" onclick="refreshQr()">🔄 Refresh QR Code</button>
+                    </div>
+                </div>
+            </details>
         </div>
 
         <div style="text-align: center; font-size: 13px; color: #9ca3af; margin-top: 24px;">

@@ -91,12 +91,13 @@ class WhatsAppBrowserCaller(threading.Thread):
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-popup-blocking",
+                "--disable-blink-features=AutomationControlled",
                 "--use-fake-ui-for-media-stream",
                 "--autoplay-policy=no-user-gesture-required",
                 "--disable-features=AudioServiceOutOfProcess",
                 "--alsa-output-device=pulse",
                 "--alsa-input-device=pulse",
-                "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+                "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
             ]
 
             chrome_path = "/usr/bin/google-chrome"
@@ -237,48 +238,70 @@ class WhatsAppBrowserCaller(threading.Thread):
         """Automates the 'Log in with phone number' flow on the Playwright thread."""
         logging.info(f"🔑 Requesting 8-digit pairing code for +880 {self.local_number}...")
         try:
-            # Handle rate limit modal if present
-            ok_btn = self.page.locator("button:has-text(\"OK\")").first
-            if ok_btn.is_visible():
-                logging.info("Clicking OK on modal...")
-                ok_btn.click()
-                time.sleep(2)
-
-            btn = self.page.locator("text=Log in with phone number").first
-            if btn.is_visible():
-                box = btn.bounding_box()
-                if box:
-                    self.page.mouse.click(box["x"] + box["width"]/2, box["y"] + box["height"]/2)
-                else:
-                    btn.click(force=True)
-                time.sleep(3)
-
-            c_btn = self.page.locator("button, [role=\"button\"]").filter(has_text="Burma").first
-            if not c_btn.is_visible():
-                c_btn = self.page.locator("div").filter(has_text="Myanmar (Burma)").last
-            
-            c_box = c_btn.bounding_box()
-            if c_box:
-                self.page.mouse.click(c_box["x"] + c_box["width"]/2, c_box["y"] + c_box["height"]/2)
-            else:
-                c_btn.click(force=True)
-            time.sleep(1.5)
-
-            self.page.keyboard.type("Bangladesh", delay=40)
-            time.sleep(1)
-            bd_item = self.page.locator("text=Bangladesh").last
-            bd_item.click(force=True)
-            time.sleep(1.5)
-
-            inp = self.page.locator("[data-testid=\"phone-number-input\"]")
-            inp.click()
-            self.page.keyboard.type(self.local_number, delay=40)
+            # 0. Dismiss any rate limit or error modal if present
+            self.page.evaluate("""() => {
+                const ok = Array.from(document.querySelectorAll('button, [role="button"]')).find(b => (b.innerText || '').trim() === 'OK');
+                if (ok) ok.click();
+            }""")
             time.sleep(1)
 
-            next_btn = self.page.locator("button:has-text(\"Next\")").first
-            next_btn.click(force=True)
+            # 1. Switch to 'Log in with phone number' screen if on QR screen
+            self.page.evaluate("""() => {
+                const all = Array.from(document.querySelectorAll('div[role="button"]'));
+                const btn = all.find(e => (e.innerText || '').includes('Log in with phone number'));
+                if (btn) btn.click();
+            }""")
+            time.sleep(2)
+
+            # 2. Open country selector if not already Bangladesh
+            needs_country = self.page.evaluate("""() => {
+                const all = Array.from(document.querySelectorAll('button'));
+                const btn = all.find(b => {
+                    const t = (b.innerText || '').trim();
+                    return t.length > 0 && !t.includes('Next') && !t.includes('Bangladesh');
+                });
+                if (btn) {
+                    btn.click();
+                    return true;
+                }
+                return false;
+            }""")
+            if needs_country:
+                time.sleep(1)
+                # Type Bangladesh in search input
+                self.page.evaluate("""() => {
+                    const search = document.querySelector('div[contenteditable="true"]');
+                    if (search) {
+                        search.focus();
+                        document.execCommand('insertText', false, 'Bangladesh');
+                    }
+                }""")
+                time.sleep(1)
+                # Click the option
+                self.page.evaluate("""() => {
+                    const opt = document.querySelector('button[role="option"]');
+                    if (opt) opt.click();
+                }""")
+                time.sleep(1)
+
+            # 3. Enter phone number
+            self.page.evaluate(f"""() => {{
+                const input = document.querySelector('[data-testid="phone-number-input"], input');
+                if (input) {{
+                    input.focus();
+                    document.execCommand('insertText', false, '{self.local_number}');
+                }}
+            }}""")
+            time.sleep(1)
+
+            # 4. Click Next button
+            self.page.evaluate("""() => {
+                const nextBtn = Array.from(document.querySelectorAll('button')).find(b => (b.innerText || '').trim() === 'Next');
+                if (nextBtn) nextBtn.click();
+            }""")
             time.sleep(5)
 
+            # 5. Extract 8-character pairing code
             code = self.page.evaluate("""() => {
                 const all = Array.from(document.querySelectorAll('*'));
                 const matches = all.filter(el => {
@@ -288,11 +311,18 @@ class WhatsAppBrowserCaller(threading.Thread):
                 return matches.map(m => m.innerText.trim()).join('');
             }""")
 
+            modal_text = self.page.evaluate("""() => {
+                const m = document.querySelector('[data-animate-modal-popup="true"], div[role="dialog"]');
+                return m ? m.innerText : null;
+            }""")
+
             if code and len(code) >= 8:
                 formatted_code = f"{code[:4]}-{code[4:8]}"
                 self.pairing_code = formatted_code
                 logging.info(f"📱 WHATSAPP WEB 8-DIGIT PAIRING CODE: {formatted_code}")
                 return formatted_code
+            elif modal_text:
+                logging.warning(f"⚠️ WhatsApp modal popup: {modal_text}")
         except Exception as e:
             logging.error(f"❌ Error during pairing code request: {e}")
         return None
