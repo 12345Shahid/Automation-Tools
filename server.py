@@ -24,7 +24,6 @@ HTML_TEMPLATE = """
 <html>
 <head>
     <title>OmniCall AI: Conversational Voice Caller (Line 1)</title>
-    <meta http-equiv="refresh" content="4">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; margin: 0; padding: 40px 20px; color: #111827; }
@@ -37,14 +36,16 @@ HTML_TEMPLATE = """
         .code-text { font-size: 42px; font-weight: 800; font-family: monospace; letter-spacing: 0.2em; color: #1e40af; }
         .btn { background: #059669; color: #ffffff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background 0.2s; }
         .btn:hover { background: #047857; }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
         .btn-blue { background: #2563eb; }
         .btn-blue:hover { background: #1d4ed8; }
         .btn-red { background: #dc2626; }
         .btn-red:hover { background: #b91c1c; }
         input[type="text"] { width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 16px; }
-        .transcript-box { background: #111827; color: #f9fafb; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; max-height: 240px; overflow-y: auto; }
-        .turn-user { color: #60a5fa; margin-bottom: 6px; }
-        .turn-sarah { color: #34d399; margin-bottom: 6px; }
+        .transcript-box { background: #111827; color: #f9fafb; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; max-height: 280px; overflow-y: auto; line-height: 1.5; }
+        .turn-user { color: #60a5fa; margin-bottom: 8px; }
+        .turn-sarah { color: #34d399; margin-bottom: 8px; }
+        .status-pill { font-weight: 600; padding: 4px 10px; border-radius: 6px; font-size: 12px; margin-left: 8px; }
     </style>
 </head>
 <body>
@@ -52,99 +53,139 @@ HTML_TEMPLATE = """
         <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="margin: 0 0 8px 0; font-size: 26px;">📞 OmniCall AI: Conversational Voice Caller</h1>
             <p style="color: #6b7280; margin: 0 0 16px 0;">Line 1 Companion Device: <b>+880 {{ caller.local_number }}</b></p>
-            {% if caller.is_connected %}
-                <span class="badge badge-green">🟢 CONNECTED & READY TO CALL</span>
-            {% elif caller.call_state != 'idle' %}
-                <span class="badge badge-blue">🔵 CALL IN PROGRESS: {{ caller.call_state.upper() }}</span>
-            {% else %}
-                <span class="badge badge-amber">🟡 PAIRING CODE REQUIRED</span>
-            {% endif %}
-        </div>
-
-        {% if not caller.is_connected %}
-        <div class="card">
-            <h2 style="margin-top: 0; font-size: 18px;">📱 Link WhatsApp Web Companion Device</h2>
-            <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">
-                On your phone (<b>+880 {{ caller.local_number }}</b>):<br>
-                1. Open <b>WhatsApp</b> &rarr; tap <b>Settings</b> (or 3 dots).<br>
-                2. Tap <b>Linked Devices</b> &rarr; tap <b>Link a Device</b>.<br>
-                3. At the bottom, tap <b>"Link with phone number instead"</b>.<br>
-                4. Enter the 8-digit code below:
-            </p>
-
-            <div class="code-box">
-                <div style="font-size: 13px; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Your 8-Digit Pairing Code:</div>
-                <div class="code-text">{{ caller.pairing_code or 'GENERATING...' }}</div>
-                <small style="color: #9ca3af; display: block; margin-top: 8px;">Auto-refreshes every 4 seconds</small>
-            </div>
-
-            <div style="text-align: center; margin-top: 16px;">
-                <button class="btn btn-blue" onclick="requestCode()">🔄 Request New 8-Digit Code</button>
-            </div>
-            
-            <div style="margin-top: 24px; text-align: center;">
-                <p style="font-size: 13px; color: #6b7280;">Or scan QR code directly if preferred:</p>
-                <img src="/api/screenshot?t={{ caller.call_start_time or 0 }}" style="max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;" />
+            <div id="statusBadgeContainer">
+                {% if caller.is_connected %}
+                    <span class="badge badge-green">🟢 CONNECTED & READY TO CALL</span>
+                {% else %}
+                    <span class="badge badge-amber">🟡 PAIRING REQUIRED</span>
+                {% endif %}
             </div>
         </div>
-        {% else %}
-        <div class="card">
+
+        <div id="callPanelCard" class="card" style="{% if not caller.is_connected %}display:none;{% endif %}">
             <h2 style="margin-top: 0; font-size: 18px;">🎙️ Outbound Voice Dialing Panel</h2>
             <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
-                Chrome will navigate to the recipient's chat and click the native WhatsApp Web <b>Voice Call</b> button to connect live audio.
+                Chrome opens the recipient's chat and triggers the native WhatsApp Web <b>Voice Call</b> with hardware-level bidirectional audio.
             </p>
 
-            <form action="/api/call" method="POST" onsubmit="handleCall(event)">
+            <form id="callForm" onsubmit="handleCall(event)">
                 <label style="display:block; font-weight:600; margin-bottom:6px; font-size:14px;">Recipient Phone Number (E.164):</label>
                 <input type="text" id="targetPhone" name="to" value="+8801917427815" placeholder="+8801xxxxxxxxx" required />
                 
                 <div style="display:flex; gap:12px;">
-                    <button type="submit" class="btn" style="flex:1;">📞 Place WhatsApp Voice Call</button>
+                    <button type="submit" id="callBtn" class="btn" style="flex:1;">📞 Place WhatsApp Voice Call</button>
                     <button type="button" class="btn btn-red" onclick="handleHangup()">🛑 End Call</button>
                 </div>
             </form>
             <div id="callResult" style="margin-top:16px; font-size:14px; font-weight:600;"></div>
         </div>
 
-        <div class="card">
-            <h2 style="margin-top: 0; font-size: 18px;">🗣️ Live In-Call Conversational Transcript</h2>
-            <div class="transcript-box">
-                {% if caller.active_call_transcript %}
-                    {% for turn in caller.active_call_transcript %}
-                        {% if turn.role == 'assistant' %}
-                            <div class="turn-sarah"><b>Sarah:</b> {{ turn.text }}</div>
-                        {% else %}
-                            <div class="turn-user"><b>Caller:</b> {{ turn.text }}</div>
-                        {% endif %}
-                    {% endfor %}
-                {% else %}
-                    <div style="color: #9ca3af;">(Waiting for active call to connect...)</div>
-                {% endif %}
+        <div id="transcriptCard" class="card" style="{% if not caller.is_connected %}display:none;{% endif %}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 style="margin: 0; font-size: 18px;">🗣️ Live In-Call Conversational Transcript</h2>
+                <span id="callStateLabel" class="status-pill" style="background:#e5e7eb; color:#374151;">IDLE</span>
+            </div>
+            <div id="transcriptBox" class="transcript-box">
+                <div style="color: #9ca3af;">(Waiting for active call to connect...)</div>
             </div>
         </div>
-        {% endif %}
 
-        <div style="text-align: center; font-size: 13px; color: #9ca3af;">
-            Persistent Chrome Profile • Real WebRTC Media Stream • Zero-Cost Telephony
+        <div id="pairingCard" class="card" style="{% if caller.is_connected %}display:none;{% endif %}">
+            <h2 style="margin-top: 0; font-size: 18px;">📱 Link WhatsApp Web Companion Device</h2>
+            <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">
+                On your phone (<b>+880 {{ caller.local_number }}</b>):<br>
+                1. Open <b>WhatsApp</b> &rarr; tap <b>Settings</b> (or 3 dots).<br>
+                2. Tap <b>Linked Devices</b> &rarr; tap <b>Link a Device</b>.<br>
+                3. Scan the QR code below:
+            </p>
+
+            <div style="text-align: center; margin-top: 16px;">
+                <img id="qrImage" src="/api/screenshot" style="max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;" />
+            </div>
+
+            <div style="text-align: center; margin-top: 16px;">
+                <button class="btn btn-blue" onclick="refreshQr()">🔄 Refresh QR Code</button>
+            </div>
+        </div>
+
+        <div style="text-align: center; font-size: 13px; color: #9ca3af; margin-top: 24px;">
+            Persistent Chrome Profile • Hardware PulseAudio WebRTC • Zero-Cost Telephony
         </div>
     </div>
 
     <script>
-        async function requestCode() {
+        let isPolling = true;
+
+        async function updateStatus() {
             try {
-                await fetch('/api/request-code', {method: 'POST'});
-                location.reload();
-            } catch(e) {
-                alert('Request failed');
-            }
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                // Update badge
+                const badgeBox = document.getElementById('statusBadgeContainer');
+                const callPanel = document.getElementById('callPanelCard');
+                const transcriptCard = document.getElementById('transcriptCard');
+                const pairingCard = document.getElementById('pairingCard');
+                const stateLabel = document.getElementById('callStateLabel');
+
+                if (data.connected) {
+                    badgeBox.innerHTML = '<span class="badge badge-green">🟢 CONNECTED & READY TO CALL</span>';
+                    callPanel.style.display = 'block';
+                    transcriptCard.style.display = 'block';
+                    pairingCard.style.display = 'none';
+                } else {
+                    badgeBox.innerHTML = '<span class="badge badge-amber">🟡 PAIRING REQUIRED</span>';
+                    callPanel.style.display = 'none';
+                    transcriptCard.style.display = 'none';
+                    pairingCard.style.display = 'block';
+                }
+
+                // Update call state pill
+                if (data.call_state === 'connected') {
+                    stateLabel.style.background = '#d1fae5';
+                    stateLabel.style.color = '#065f46';
+                    stateLabel.innerText = 'LIVE IN-CALL';
+                } else if (data.call_state === 'ringing' || data.call_state === 'calling') {
+                    stateLabel.style.background = '#dbeafe';
+                    stateLabel.style.color = '#1e40af';
+                    stateLabel.innerText = data.call_state.toUpperCase() + '...';
+                } else {
+                    stateLabel.style.background = '#e5e7eb';
+                    stateLabel.style.color = '#374151';
+                    stateLabel.innerText = 'IDLE';
+                }
+
+                // Update transcript
+                const box = document.getElementById('transcriptBox');
+                if (data.transcript && data.transcript.length > 0) {
+                    let html = '';
+                    data.transcript.forEach(t => {
+                        if (t.role === 'assistant') {
+                            html += '<div class="turn-sarah"><b>Sarah:</b> ' + escapeHtml(t.text) + '</div>';
+                        } else {
+                            html += '<div class="turn-user"><b>Caller:</b> ' + escapeHtml(t.text) + '</div>';
+                        }
+                    });
+                    box.innerHTML = html;
+                    box.scrollTop = box.scrollHeight;
+                }
+            } catch(e) {}
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
         }
 
         async function handleCall(e) {
             e.preventDefault();
             const phone = document.getElementById('targetPhone').value;
             const resEl = document.getElementById('callResult');
+            const btn = document.getElementById('callBtn');
+            btn.disabled = true;
             resEl.style.color = '#1e40af';
-            resEl.innerText = 'Calling ' + phone + ' via Chrome...';
+            resEl.innerText = '⏳ Opening chat and placing WhatsApp Voice Call to ' + phone + '...';
             try {
                 const res = await fetch('/api/call', {
                     method: 'POST',
@@ -162,6 +203,8 @@ HTML_TEMPLATE = """
             } catch (err) {
                 resEl.style.color = '#b91c1c';
                 resEl.innerText = '❌ Request failed: ' + err.message;
+            } finally {
+                setTimeout(() => { btn.disabled = false; }, 3000);
             }
         }
 
@@ -173,6 +216,17 @@ HTML_TEMPLATE = """
                 resEl.innerText = '🛑 Call hung up.';
             } catch(e) {}
         }
+
+        async function refreshQr() {
+            try {
+                await fetch('/api/show-qr', {method: 'POST'});
+                document.getElementById('qrImage').src = '/api/screenshot?t=' + Date.now();
+            } catch(e) {}
+        }
+
+        // Poll dynamically every 2 seconds without full-page reloads
+        setInterval(updateStatus, 2000);
+        updateStatus();
     </script>
 </body>
 </html>
@@ -193,15 +247,15 @@ def api_status():
         "transcript": caller.active_call_transcript
     })
 
-@app.route("/api/request-code", methods=["POST"])
-def api_request_code():
-    code = caller.request_pairing_code()
-    return jsonify({"ok": bool(code), "code": code})
-
 @app.route("/api/show-qr", methods=["POST"])
 def api_show_qr():
     ok = caller.show_qr_code()
     return jsonify({"ok": ok})
+
+@app.route("/api/request-code", methods=["POST"])
+def api_request_code():
+    code = caller.request_pairing_code()
+    return jsonify({"ok": bool(code), "code": code})
 
 @app.route("/api/call", methods=["POST"])
 def api_call():

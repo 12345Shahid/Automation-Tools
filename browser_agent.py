@@ -90,6 +90,7 @@ class WhatsAppBrowserCaller(threading.Thread):
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
+                "--disable-popup-blocking",
                 "--use-fake-ui-for-media-stream",
                 "--autoplay-policy=no-user-gesture-required",
                 "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
@@ -103,6 +104,9 @@ class WhatsAppBrowserCaller(threading.Thread):
                 args=launch_args,
                 env=os.environ
             )
+
+            # Monitor all pages and popups
+            self.context.on("page", lambda new_page: logging.info(f"📑 Chrome page opened: {new_page.url} ({new_page.title()})"))
 
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
 
@@ -178,16 +182,33 @@ class WhatsAppBrowserCaller(threading.Thread):
     def _do_show_qr_code(self) -> bool:
         """Dismisses any error modal and navigates to the QR code screen."""
         try:
-            ok_btn = self.page.locator("button:has-text(\"OK\"), [role=\"button\"]:has-text(\"OK\")").first
-            if ok_btn.is_visible():
-                ok_btn.click()
-                time.sleep(1)
+            logging.info("Dismissing any modal and switching to QR code...")
+            res = self.page.evaluate("""() => {
+                let clickedOk = false;
+                let clickedQr = false;
 
-            qr_btn = self.page.locator("text=Log in with QR code").first
-            if qr_btn.is_visible():
-                qr_btn.click()
-                time.sleep(2)
-                return True
+                // 1. Click OK on error popup
+                const all = Array.from(document.querySelectorAll('button, [role="button"], div, span'));
+                const okBtn = all.find(b => (b.innerText || '').trim() === 'OK');
+                if (okBtn) {
+                    okBtn.click();
+                    clickedOk = true;
+                }
+
+                // 2. Click Log in with QR code
+                setTimeout(() => {
+                    const all2 = Array.from(document.querySelectorAll('*'));
+                    const qrLink = all2.find(el => (el.innerText || '').includes('Log in with QR code'));
+                    if (qrLink) {
+                        qrLink.click();
+                        clickedQr = true;
+                    }
+                }, 800);
+
+                return { clickedOk, clickedQr };
+            }""")
+            time.sleep(2)
+            return True
         except Exception as e:
             logging.error(f"Error returning to QR code: {e}")
         return False
@@ -271,39 +292,107 @@ class WhatsAppBrowserCaller(threading.Thread):
         self.active_call_transcript = []
 
         try:
-            chat_url = f"https://web.whatsapp.com/send?phone={clean_target}"
-            self.page.goto(chat_url, timeout=30000, wait_until="domcontentloaded")
-            time.sleep(6)
+            # 0. Dismiss any greeting / "What's new" modal if blocking screen
+            try:
+                self.page.evaluate("""() => {
+                    const contBtn = Array.from(document.querySelectorAll('button, [role="button"]')).find(b => (b.innerText || '').trim() === 'Continue');
+                    if (contBtn) contBtn.click();
+                    const closeBtn = document.querySelector('[data-icon="x"], button[aria-label="Close"]');
+                    if (closeBtn) closeBtn.click();
+                }""")
+                time.sleep(1)
+            except Exception:
+                pass
 
+            # 1. Switch back to Chats view if on Calls or another tab
+            try:
+                chats_btn = self.page.locator('button[aria-label="Chats"], [data-icon="chat"], [data-icon="chat-outline"]').first
+                if chats_btn.is_visible():
+                    chats_btn.click()
+                    time.sleep(1)
+            except Exception:
+                pass
+
+            main_header = None
+
+            # 2. Check if target is already visible in chat list (#pane-side)
+            target_short = clean_target[-8:]  # e.g. "17427815"
+            try:
+                chat_row = self.page.locator(f'#pane-side [role="row"]').filter(has_text=target_short).first
+                if chat_row.is_visible():
+                    logging.info(f"Target +{clean_target} found directly in chat list! Clicking row...")
+                    chat_row.click()
+                    time.sleep(2)
+                    if self.page.locator("#main header").first.is_visible():
+                        main_header = self.page.locator("#main header").first
+            except Exception as e:
+                logging.warning(f"Chat list direct click error: {e}")
+
+            # 3. Check if chat is already open for target in #main
+            if not main_header and self.page.locator("#main header").first.is_visible():
+                header_text = self.page.locator("#main header").first.inner_text().replace(" ", "").replace("-", "")
+                if clean_target in header_text or target_short in header_text:
+                    main_header = self.page.locator("#main header").first
+
+            # 4. Open chat via deep link if not opened yet
+            if not main_header:
+                logging.info(f"Opening chat via URL: https://web.whatsapp.com/send/?phone={clean_target}")
+                self.page.goto(f"https://web.whatsapp.com/send/?phone={clean_target}", timeout=30000, wait_until="domcontentloaded")
+                for _ in range(12):
+                    if self.page.locator("#main header").first.is_visible():
+                        main_header = self.page.locator("#main header").first
+                        break
+                    time.sleep(1)
+
+            # 5. Fallback: Search box in #pane-side
+            if not main_header:
+                logging.info(f"Searching for {clean_target} in WhatsApp search bar...")
+                search = self.page.locator('div[contenteditable="true"][data-tab="3"], [aria-label*="Search" i], #side [role="textbox"]').first
+                if search.is_visible():
+                    search.click()
+                    self.page.keyboard.type(clean_target, delay=30)
+                    time.sleep(2)
+                    first_cell = self.page.locator('#pane-side [role="row"], #pane-side [data-testid="cell-frame-container"]').first
+                    if first_cell.is_visible():
+                        first_cell.click()
+                        time.sleep(2)
+                        if self.page.locator("#main header").first.is_visible():
+                            main_header = self.page.locator("#main header").first
+
+            if not main_header:
+                self.call_state = "idle"
+                logging.error(f"❌ Failed to open chat with +{clean_target}")
+                return {"ok": False, "error": f"Could not open conversation with +{clean_target}."}
+
+            logging.info("Chat conversation loaded! Locating Voice Call button strictly inside #main header...")
+            time.sleep(1)
+
+            # 5. Locate Voice Call button strictly inside #main header (avoiding video call)
             call_selectors = [
-                "button[aria-label*=\"Audio call\" i]",
-                "button[aria-label*=\"Voice call\" i]",
-                "span[data-icon=\"phone\"]",
-                "span[data-icon=\"phone-outline\"]",
-                "button[title*=\"call\" i]"
+                '#main header button[aria-label*="voice call" i]',
+                '#main header button[aria-label*="audio call" i]',
+                '#main header button[title*="voice call" i]',
+                '#main header button[title*="audio call" i]',
+                '#main header span[data-icon="phone"]',
+                '#main header button:has(span[data-icon="phone"])'
             ]
 
             call_btn = None
             for sel in call_selectors:
-                btn = self.page.locator(sel).first
-                if btn.is_visible():
-                    call_btn = btn
-                    logging.info(f"Found call button via selector: {sel}")
+                el = self.page.locator(sel).first
+                if el.is_visible():
+                    call_btn = el
+                    logging.info(f"Found voice call button in #main header: {sel}")
                     break
-
-            if not call_btn:
-                header_buttons = self.page.locator("header button, header [role=\"button\"]").all()
-                for hb in header_buttons:
-                    html = hb.evaluate("el => el.outerHTML")
-                    if "call" in html.lower() or "phone" in html.lower():
-                        call_btn = hb
-                        logging.info("Found call button in chat header!")
-                        break
 
             if call_btn:
                 call_btn.click()
                 self.call_state = "ringing"
-                logging.info(f"✅ Clicked WhatsApp Voice Call button! Calling +{clean_target}...")
+                logging.info(f"✅ Clicked WhatsApp Voice Call button in #main header! Calling +{clean_target}...")
+                
+                # Start hardware duplex listener immediately so we capture WebRTC audio and answer instantly
+                self._start_audio_listener()
+
                 return {
                     "ok": True,
                     "status": "ringing",
@@ -312,10 +401,10 @@ class WhatsAppBrowserCaller(threading.Thread):
                 }
             else:
                 self.call_state = "idle"
-                logging.warning(f"⚠️ Voice call button not found in chat header for +{clean_target}")
+                logging.warning(f"⚠️ Voice call button not present in #main header for +{clean_target}")
                 return {
                     "ok": False,
-                    "error": "Voice call button not present in this chat header."
+                    "error": "Voice call button not present in chat header."
                 }
         except Exception as e:
             self.call_state = "idle"
@@ -328,44 +417,79 @@ class WhatsAppBrowserCaller(threading.Thread):
             if not self.page:
                 return {"state": self.call_state}
 
-            status_info = self.page.evaluate("""() => {
-                const allSpans = Array.from(document.querySelectorAll('span, div, p'));
-                const nonMessageSpans = allSpans.filter(el => !el.closest('[role="row"], [data-id*="false_"], [data-id*="true_"]'));
-                
-                const timerSpan = nonMessageSpans.find(el => {
-                    const t = (el.innerText || '').trim();
-                    return /^(0[0-9]|1[0-9]):[0-5][0-9]$/.test(t) && el.children.length === 0;
-                });
-                
+            # Check across all active pages (in case call opened in a popup)
+            active_page = self.page
+            if self.context and len(self.context.pages) > 1:
+                active_page = self.context.pages[-1]
+
+            status_info = active_page.evaluate("""() => {
+                // 1. Scan all text nodes for in-call timer string (e.g. "00:05", "0:12", "1:23")
+                const timers = [];
+                const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+                let n;
+                while(n = walk.nextNode()) {
+                    const val = (n.nodeValue || '').trim();
+                    if (/^\\d{1,2}:[0-5]\\d$/.test(val)) {
+                        // Ensure not in chat history row
+                        if (!n.parentElement.closest('[role="row"], [data-id*="false_"], [data-id*="true_"]')) {
+                            timers.push(val);
+                        }
+                    }
+                }
+
+                // 2. Scan for call control buttons
+                const endBtn = document.querySelector('[data-icon="x-circle"], [data-icon="x"], button[aria-label*="End call" i], button[title*="End call" i], [data-icon="phone-hangup"]');
+                const muteBtn = document.querySelector('button[aria-label*="Mute" i], [data-icon="mic"], [data-icon="microphone"]');
+
+                // 3. Scan for call status text
                 const allText = document.body.innerText.toLowerCase();
-                const isEnded = allText.includes('call ended') || allText.includes('declined') || allText.includes('unavailable');
                 const isRinging = allText.includes('ringing');
                 const isCalling = allText.includes('calling');
-                const endBtn = document.querySelector('[data-icon="x-circle"], [data-icon="x"], button[aria-label*="End call" i], button[title*="End call" i]');
+                const isEnded = allText.includes('call ended') || allText.includes('declined') || allText.includes('unavailable') || allText.includes('call missed');
+
+                let snippet = '';
+                if (endBtn) {
+                    const bar = endBtn.closest('div[style*="position"], [role="region"], div');
+                    snippet = bar ? (bar.innerText || '').slice(0, 100).replace(/\\n/g, ' ') : '';
+                }
 
                 return {
-                    timer: timerSpan ? timerSpan.innerText.trim() : null,
-                    isEnded: isEnded,
+                    timer: timers.length > 0 ? timers[0] : null,
+                    allTimers: timers,
+                    hasEndBtn: !!endBtn,
+                    hasMuteBtn: !!muteBtn,
                     isRinging: isRinging,
                     isCalling: isCalling,
-                    hasEndBtn: !!endBtn
+                    isEnded: isEnded,
+                    snippet: snippet
                 };
             }""")
 
             timer = status_info.get("timer")
-            is_ended = status_info.get("isEnded")
             has_end_btn = status_info.get("hasEndBtn")
+            is_ringing = status_info.get("isRinging")
+            is_calling = status_info.get("isCalling")
+            is_ended = status_info.get("isEnded")
+            snippet = status_info.get("snippet", "")
             elapsed = time.time() - (self.call_start_time or time.time())
 
-            # 1. Call is ANSWERED when a valid in-call timer appears!
+            # Log status every check
+            logging.info(f"📞 [Call Monitor] state={self.call_state}, elapsed={round(elapsed,1)}s, timer={timer}, hasEndBtn={has_end_btn}, isRinging={is_ringing}, isCalling={is_calling}, snippet={repr(snippet)}")
+
+            # Detect call answer:
+            # 1. Timer found (e.g. 00:01)
+            # 2. OR End call button is visible, ringing/calling text is gone, and at least 3 seconds elapsed
+            call_answered = False
             if timer:
+                call_answered = True
+            elif has_end_btn and not is_ringing and not is_calling and elapsed > 3:
+                call_answered = True
+
+            if call_answered:
                 if not self.intro_spoken:
                     self.intro_spoken = True
                     self.call_state = "connected"
-                    logging.info(f"🎉 WhatsApp Voice Call ANSWERED by +{self.active_call_target}! In-call timer: {timer}.")
-                    
-                    # Start continuous PulseAudio VAD listener thread
-                    self._start_audio_listener()
+                    logging.info(f"🎉 WhatsApp Voice Call ANSWERED by +{self.active_call_target}! Timer: {timer or 'active'}.")
 
                     # Deliver Sarah's intro ONCE into VirtualMic
                     intro_text = (
@@ -374,37 +498,35 @@ class WhatsAppBrowserCaller(threading.Thread):
                         "How are you doing today?"
                     )
                     self.active_call_transcript.append({"role": "assistant", "text": intro_text, "timestamp": time.time()})
-                    
+
                     intro_wav = os.path.join(BASE_DIR, "sarah_intro.wav")
                     if not os.path.exists(intro_wav):
                         live_voice_agent.synthesize_speech_to_wav(intro_text, intro_wav)
-                    
+
                     logging.info("🗣️ Delivering Sarah's opening pitch ONCE (zero looping)...")
                     self._play_speech_file(intro_wav)
 
                 self.call_state = "connected"
-                parts = timer.split(":")
-                if len(parts) == 2:
-                    self.call_duration = int(parts[0]) * 60 + int(parts[1])
+                if timer:
+                    parts = timer.split(":")
+                    if len(parts) == 2:
+                        self.call_duration = int(parts[0]) * 60 + int(parts[1])
 
-            # 2. Call has ended ONLY IF:
-            # - It was connected and now ended
-            # - OR explicitly ended / declined
-            # - OR ring timeout exceeded 55s
+            # Detect call end:
             should_end = False
             if self.call_state == "connected" and (is_ended or not has_end_btn):
                 should_end = True
                 logging.info(f"🛑 Connected call ended after {self.call_duration}s.")
             elif self.call_state in ("calling", "ringing") and is_ended:
                 should_end = True
-                logging.info(f"🛑 Call declined or ended while ringing.")
+                logging.info("🛑 Call declined or ended while ringing.")
             elif self.call_state in ("calling", "ringing") and elapsed > 55:
                 should_end = True
-                logging.info(f"⏱️ Call ring timeout (55s exceeded without answer).")
+                logging.info("⏱️ Call ring timeout (55s exceeded without answer).")
 
             if should_end:
                 self._stop_audio_listener()
-                
+
                 target = self.active_call_target
                 answered = (self.call_duration > 0 or self.call_state == "connected")
                 duration = self.call_duration
@@ -476,15 +598,16 @@ class WhatsAppBrowserCaller(threading.Thread):
             "parec", "-d", "CallSpeaker.monitor",
             "--rate=16000", "--channels=1", "--format=s16le"
         ]
-        
+
         proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        
+
         # 100ms at 16000Hz 16-bit mono = 1600 samples = 3200 bytes
         chunk_bytes = 3200
         speech_chunks = []
         is_speaking = False
         silence_count = 0
-        threshold = 600.0  # RMS speech threshold
+        threshold = 500.0  # RMS speech threshold
+        last_monitor_log = time.time()
 
         try:
             while not self.stop_audio_listener.is_set():
@@ -495,11 +618,23 @@ class WhatsAppBrowserCaller(threading.Thread):
                 samples = np.frombuffer(raw, dtype=np.int16)
                 rms = float(np.sqrt(np.mean(samples.astype(np.float32)**2)))
 
+                # Periodic heartbeat log every 3 seconds
+                if time.time() - last_monitor_log > 3.0:
+                    last_monitor_log = time.time()
+                    logging.info(f"🎙️ [In-Call Audio Heartbeat] RMS: {round(rms, 1)} (is_speaking={is_speaking}, intro_spoken={self.intro_spoken})")
+
                 if rms > threshold:
                     if not is_speaking:
                         is_speaking = True
                         silence_count = 0
-                        logging.info(f"🎙️ Caller voice detected! RMS: {round(rms, 1)}")
+                        logging.info(f"🎙️ CALLER VOICE DETECTED! RMS: {round(rms, 1)}")
+
+                        # If call was not yet marked connected, caller voice confirms answer!
+                        if not self.intro_spoken:
+                            self.intro_spoken = True
+                            self.call_state = "connected"
+                            logging.info(f"🎉 WhatsApp Voice Call ANSWERED by caller speech detection on CallSpeaker.monitor!")
+
                         # Caller spoke: immediately interrupt Sarah if she was speaking
                         self._stop_current_speech()
                         speech_chunks = [raw]
@@ -510,15 +645,15 @@ class WhatsAppBrowserCaller(threading.Thread):
                     if is_speaking:
                         speech_chunks.append(raw)
                         silence_count += 1
-                        # 700ms silence = 7 chunks of 100ms
-                        if silence_count >= 7:
+                        # 600ms silence = 6 chunks of 100ms
+                        if silence_count >= 6:
                             is_speaking = False
                             silence_count = 0
                             total_bytes = b"".join(speech_chunks)
                             speech_chunks = []
-                            
-                            # Only process if caller spoke for at least 0.3s (4800 bytes)
-                            if len(total_bytes) >= 4800:
+
+                            # Only process if caller spoke for at least 0.25s (4000 bytes)
+                            if len(total_bytes) >= 4000:
                                 threading.Thread(target=self._handle_caller_utterance, args=(total_bytes,), daemon=True).start()
 
         except Exception as e:
@@ -533,27 +668,32 @@ class WhatsAppBrowserCaller(threading.Thread):
 
     def _handle_caller_utterance(self, pcm_bytes: bytes):
         """Transcribes caller PCM, queries Moonmath DeepSeek, and speaks reply into call."""
-        if not self.call_state == "connected":
+        if not self.call_state in ("connected", "ringing"):
             return
 
+        logging.info(f"🗣️ Transcribing caller speech chunk ({len(pcm_bytes)} bytes)...")
         user_text = live_voice_agent.transcribe_caller_pcm(pcm_bytes)
         if not user_text:
+            logging.info("ℹ️ Whisper transcription returned no text (non-speech noise).")
             return
 
+        logging.info(f"👤 CALLER SAID: \"{user_text}\"")
         self.active_call_transcript.append({"role": "user", "text": user_text, "timestamp": time.time()})
 
         # Generate intelligent contextual reply
+        logging.info("🤖 Querying Moonmath DeepSeek for conversational reply...")
         reply_text = live_voice_agent.generate_conversational_reply(
             history=self.active_call_transcript,
             user_utterance=user_text,
             company_name="Target Business"
         )
+        logging.info(f"🤖 SARAH GENERATED: \"{reply_text}\"")
         self.active_call_transcript.append({"role": "assistant", "text": reply_text, "timestamp": time.time()})
 
         # Synthesize speech to WAV
         wav_file = live_voice_agent.synthesize_speech_to_wav(reply_text)
-        if wav_file and self.call_state == "connected":
-            logging.info("🔊 Streaming Sarah's reply back into call...")
+        if wav_file and self.call_state in ("connected", "ringing"):
+            logging.info(f"🔊 Playing Sarah's reply back into call ({wav_file})...")
             self._play_speech_file(wav_file)
 
     def _on_call_finished(self, target_phone: str, answered: bool, duration: float, transcript: List[Dict[str, Any]]):
