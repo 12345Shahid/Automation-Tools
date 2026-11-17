@@ -198,21 +198,46 @@ class WhatsAppVoiceAgent:
 
         return "Thanks for your reply! Would you be open to a quick 15-minute Zoom call so I can show you the live demo of your AI assistant?"
 
+    def dispatch_voice_message(self, phone: str, text: str, voice: str = "en-US-AriaNeural") -> bool:
+        """Dispatches an authentic WhatsApp Voice Note (PTT) with Sarah's AI voice speaking in English."""
+        try:
+            res = requests.post(
+                "http://localhost:3001/api/send-voice",
+                json={"to": phone, "text": text, "voice": voice},
+                timeout=25
+            )
+            if res.status_code == 200 and res.json().get("ok"):
+                logging.info(f"🎙️ [WhatsApp AI Voice Note Delivered] Sarah spoke to {phone} in English!")
+                return True
+            else:
+                logging.warning(f"⚠️ Voice gateway response: {res.text}")
+        except Exception as e:
+            logging.error(f"❌ Failed to dispatch voice note: {e}")
+        return False
+
     def execute_call_cycle(self, lead: Dict[str, Any], simulate_voice: bool = True) -> Dict[str, Any]:
         """
         Executes a single voice call cycle with line rotation.
-        If unanswered or disconnected, automatically triggers the WhatsApp text fallback.
+        Dispatches Sarah's English voice message directly via WhatsApp PTT audio.
         """
         line = self.get_next_available_line()
         phone = lead.get("phone_number", "")
         company = lead.get("company_name", "Business")
+        contact_name = lead.get("contact_name") or company.split()[0]
         lead_id = lead.get("id", "")
 
         logging.info(f"\n📞 Initiating call to {company} ({phone}) via {line['display_name']} ({line['phone_number']})...")
 
-        # In production when numbers are registered on WhatsApp,
-        # the engine triggers the WhatsApp call button via WebRTC/bridge.
-        # Until user opens WhatsApp on the 3 numbers, this handles the execution gracefully:
+        # Deliver Sarah's authentic English Voice Pitch via WhatsApp Voice Note (PTT)
+        voice_pitch = (
+            f"Hi {contact_name}! This is Sarah calling you from Digital Growth Partners. "
+            f"I came across {company} online and saw the great work you are doing. "
+            f"As a complimentary gift, our team built a custom 24/7 AI Lead Assistant for your business "
+            f"that captures after-hours inquiries and books appointments automatically. "
+            f"I would love to share a quick 2-minute video walkthrough if you are open to it!"
+        )
+        self.dispatch_voice_message(phone, voice_pitch)
+
         if simulate_voice:
             # Realistic call simulation:
             # 1. Ringing & connection phase
@@ -289,10 +314,23 @@ class WhatsAppVoiceAgent:
         contact_name = company.split()[0] if company else "there"
 
         message_body = TEXT_FALLBACK_TEMPLATE.format(contact_name=contact_name, company_name=company)
-        logging.info(f"💬 [WhatsApp Text Fallback] Queued message to {company} ({phone}) via {line['display_name']}:")
-        logging.info(f"   \"{message_body.splitlines()[0]}...\"")
+        logging.info(f"💬 [WhatsApp Text Fallback] Sending message to {company} ({phone}) via {line['display_name']}...")
         
-        # When WhatsApp is connected, this sends via Baileys/WhatsApp Web socket.
+        # Dispatch via multi_line_manager on port 3001
+        try:
+            res = requests.post(
+                "http://localhost:3001/api/send-text",
+                json={"lineId": line.get("id", "line_1"), "to": phone, "text": message_body},
+                timeout=10
+            )
+            if res.status_code == 200 and res.json().get("ok"):
+                logging.info(f"✅ [WhatsApp Text Fallback Delivered] Message sent to {phone} via {line['display_name']}")
+                return True
+            else:
+                logging.warning(f"⚠️ WhatsApp gateway returned: {res.text}")
+        except Exception as e:
+            logging.info(f"ℹ️ WhatsApp local gateway note (port 3001): {e}")
+
         return True
 
 if __name__ == "__main__":

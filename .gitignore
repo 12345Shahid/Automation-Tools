@@ -46,3 +46,10 @@ notes/
 scratch/
 files/
 
+
+# WhatsApp Sessions & Auth
+auth_info_line_1/
+browser-caller/profile/
+*.wav
+*.mp3
+omnichannel_memory.json

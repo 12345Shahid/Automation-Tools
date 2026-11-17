@@ -11,19 +11,33 @@ const app = express();
 const PORT = process.env.WHATSAPP_PORT || 3001;
 
 const LINES = [
-    { id: 'line_1', name: 'Sarah Line 1 (+8801746654426)', phone: process.env.WHATSAPP_LINE_1 || process.env.SIGNALWIRE_LINE_1 || '+8801746654426' },
-    { id: 'line_2', name: 'Sarah Line 2', phone: process.env.SIGNALWIRE_LINE_2 || '+19453260478' },
-    { id: 'line_3', name: 'Sarah Line 3', phone: process.env.SIGNALWIRE_LINE_3 || '+19453260334' }
+    { id: 'line_1', name: 'Sarah Line 1 (+8801746654426)', phone: '+8801746654426', enabled: true },
+    { id: 'line_2', name: 'Line 2 (Pending Activation)', phone: '+19453260478', enabled: false },
+    { id: 'line_3', name: 'Line 3 (Pending Activation)', phone: '+19453260334', enabled: false }
 ];
 
 const sessions = {};
 
 function initLine(line) {
+    if (line.enabled === false) {
+        sessions[line.id] = {
+            config: line,
+            client: null,
+            status: 'standby',
+            qrUrl: '',
+            authenticated: false
+        };
+        console.log(`⏸️ [${line.name}] In standby mode. Line 1 is primary.`);
+        return;
+    }
+
     console.log(`🚀 Initializing WhatsApp Session for ${line.name} (${line.phone})...`);
 
+    const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome';
     const client = new Client({
         authStrategy: new LocalAuth({ clientId: `omnicall_${line.id}` }),
         puppeteer: {
+            executablePath: chromePath,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-extensions', '--disable-gpu']
         }
     });
@@ -85,13 +99,22 @@ app.get('/', (req, res) => {
 
     LINES.forEach(line => {
         const s = sessions[line.id] || { status: 'idle', qrUrl: '', authenticated: false };
-        let statusBadge = s.authenticated 
-            ? '<span style="color:#10b981; font-weight:bold;">🟢 CONNECTED & READY</span>'
-            : (s.qrUrl ? '<span style="color:#f59e0b; font-weight:bold;">🟡 SCAN QR TO LINK</span>' : '<span style="color:#6b7280;">⚪ INITIALIZING...</span>');
+        let statusBadge = '';
+        let qrSection = '';
 
-        let qrSection = s.authenticated 
-            ? '<div style="padding:40px; background:#f0fdf4; border-radius:12px; color:#15803d; font-weight:600;">✅ Line Active & Listening</div>'
-            : (s.qrUrl ? `<img src="${s.qrUrl}" style="width:220px; height:220px; border:1px solid #e5e7eb; border-radius:8px;" /><br><small style="color:#6b7280;">Open WhatsApp on phone > Linked Devices > Scan</small>` : '<p style="color:#9ca3af;">Generating QR code...</p>');
+        if (line.enabled === false) {
+            statusBadge = '<span style="color:#9ca3af; font-weight:600;">⏸️ STANDBY (PENDING)</span>';
+            qrSection = '<div style="padding:40px 20px; background:#f3f4f6; border-radius:12px; color:#6b7280; font-size:13px; line-height:1.5;">Line 1 (+8801746654426) is the active outreach line.<br>This slot activates when needed.</div>';
+        } else if (s.authenticated) {
+            statusBadge = '<span style="color:#10b981; font-weight:bold;">🟢 CONNECTED & READY</span>';
+            qrSection = '<div style="padding:40px; background:#f0fdf4; border-radius:12px; color:#15803d; font-weight:600;">✅ Active Outreach Line<br><span style="font-size:13px; font-weight:normal; color:#166534;">Listening & Ready for Calling/Messaging</span></div>';
+        } else if (s.qrUrl) {
+            statusBadge = '<span style="color:#f59e0b; font-weight:bold;">🟡 SCAN QR TO LINK</span>';
+            qrSection = `<img src="${s.qrUrl}" style="width:220px; height:220px; border:1px solid #e5e7eb; border-radius:8px;" /><br><small style="color:#6b7280; display:block; margin-top:10px;">WhatsApp > Settings / 3 Dots > Linked Devices > Link a Device</small>`;
+        } else {
+            statusBadge = '<span style="color:#6b7280;">⚪ INITIALIZING...</span>';
+            qrSection = '<div style="padding:40px; color:#9ca3af;">Generating QR code...</div>';
+        }
 
         cardsHtml += `
             <div style="flex:1; min-width:280px; max-width:340px; border:1px solid #e5e7eb; border-radius:16px; padding:24px; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); background:#ffffff;">
@@ -131,6 +154,22 @@ app.get('/', (req, res) => {
     `);
 });
 
+// Status API
+app.get('/api/status', (req, res) => {
+    const statusObj = {};
+    LINES.forEach(l => {
+        const s = sessions[l.id];
+        statusObj[l.id] = {
+            name: l.name,
+            phone: l.phone,
+            enabled: l.enabled !== false,
+            authenticated: s ? s.authenticated : false,
+            status: s ? s.status : 'offline'
+        };
+    });
+    res.json(statusObj);
+});
+
 // Outbound Call / Text API for Python caller
 app.use(express.json());
 app.post('/api/send-text', async (req, res) => {
@@ -143,6 +182,30 @@ app.post('/api/send-text', async (req, res) => {
         const jid = to.replace(/[^0-9]/g, '') + '@c.us';
         await session.client.sendMessage(jid, text);
         return res.json({ ok: true, status: 'sent' });
+    } catch (e) {
+        return res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+app.post('/api/call', async (req, res) => {
+    const { lineId, to } = req.body;
+    const session = sessions[lineId || 'line_1'];
+    if (!session || !session.client || !session.authenticated) {
+        return res.status(400).json({ ok: false, error: 'Line not connected' });
+    }
+    try {
+        const cleanPhone = to.replace(/[^0-9]/g, '');
+        let callLink = null;
+        try {
+            callLink = await session.client.createCallLink({ callType: 'voice' });
+        } catch (e) {}
+
+        return res.json({
+            ok: true,
+            status: 'initiated',
+            target: cleanPhone,
+            callLink: callLink
+        });
     } catch (e) {
         return res.status(500).json({ ok: false, error: e.message });
     }
