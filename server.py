@@ -1,460 +1,230 @@
-import os
-import json
-from pathlib import Path
-from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
-from src.config import get_candidate_profile, get_llm, BASE_DIR
-from src.discovery import search_jobs
-from src.email_sender import EmailSender
-from src.email_writer import generate_outreach_email
-from src.email_reader import EmailReader
-from src.email_chat_engine import EmailChatEngine
-from src.lead_scraper import LeadScraper
-from src.ai_provider import load_ai_config, save_ai_config, test_provider_connection, PROVIDERS
-
-app = FastAPI(title="Job Co-Pilot Bridge Server", version="1.0.0")
-
-# Enable CORS for Chrome Extension
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def root_redirect():
-    return RedirectResponse(url="/email-agent")
-
-@app.get("/email-agent")
-def email_agent_dashboard():
-    dashboard_file = BASE_DIR / "static" / "email_agent.html"
-    if not dashboard_file.exists():
-        raise HTTPException(status_code=404, detail="Email Agent dashboard file not found")
-    return FileResponse(dashboard_file)
-
-@app.get("/test")
-def test_page():
-    test_file = BASE_DIR / "extension" / "test_job_form.html"
-    return FileResponse(test_file)
-
-@app.get("/skool-test")
-def skool_test_page():
-    test_file = BASE_DIR / "skool-agent" / "test_skool_community.html"
-    return FileResponse(test_file)
-
-@app.get("/api/resume.pdf")
-def get_resume_pdf():
-    profile = get_candidate_profile()
-    resume_path = BASE_DIR / profile.get("resume_file_path", "data/resumes/sample_resume.pdf")
-    if not resume_path.exists():
-        raise HTTPException(status_code=404, detail=f"Resume file not found at {resume_path}")
-    return FileResponse(
-        resume_path,
-        media_type="application/pdf",
-        filename=resume_path.name
-    )
-
-@app.get("/api/resume-base64")
-def get_resume_base64():
-    import base64
-    profile = get_candidate_profile()
-    resume_path = BASE_DIR / profile.get("resume_file_path", "data/resumes/sample_resume.pdf")
-    if not resume_path.exists():
-        raise HTTPException(status_code=404, detail=f"Resume file not found at {resume_path}")
-    with open(resume_path, "rb") as f:
-        data_b64 = base64.b64encode(f.read()).decode("utf-8")
-    return {
-        "success": True,
-        "filename": resume_path.name,
-        "data": data_b64,
-        "size": resume_path.stat().st_size
-    }
-
-class LogMessage(BaseModel):
-    event: str
-    element: Optional[str] = None
-    value: Optional[str] = None
-    details: Optional[str] = None
-
-@app.post("/api/test-log")
-def log_event(log: LogMessage):
-    from rich.console import Console
-    console = Console()
-    console.print(f"[bold cyan][BROWSER EVENT][/bold cyan] [yellow]{log.event}[/yellow] | element: [green]{log.element}[/green] | value: [white]{log.value}[/white] | details: [dim]{log.details}[/dim]")
-    return {"status": "logged"}
-
-
-
-class SearchRequest(BaseModel):
-    query: str
-    location: str = "Remote"
-    country: str = "usa"
-    job_type: Optional[str] = "fulltime"
-    limit: int = 10
-    sites: Optional[List[str]] = ["linkedin", "indeed", "glassdoor"]
-    is_remote: bool = False
-
-class MatchRequest(BaseModel):
-    fields: List[Dict[str, Any]]
-    profile_override: Optional[Dict[str, Any]] = None
-
-@app.get("/api/health")
-def health_check():
-    return {"status": "ok", "service": "job-copilot-bridge"}
-
-@app.get("/api/profile")
-def get_profile():
-    try:
-        profile = get_candidate_profile()
-        return {"success": True, "profile": profile}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/profile")
-def update_profile(new_profile: Dict[str, Any]):
-    try:
-        profile_path = BASE_DIR / "data" / "candidate_profile.json"
-        with open(profile_path, "w", encoding="utf-8") as f:
-            json.dump(new_profile, f, indent=2)
-        return {"success": True, "message": "Profile updated successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/jobs/search")
-def search_jobs_endpoint(req: SearchRequest):
-    try:
-        jobs = search_jobs(
-            search_term=req.query,
-            location=req.location,
-            country=req.country,
-            job_type=req.job_type,
-            sites=req.sites,
-            results_wanted=req.limit,
-            is_remote=req.is_remote
-        )
-        return {"success": True, "count": len(jobs), "jobs": jobs}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/match-fields")
-def match_fields_endpoint(req: MatchRequest):
-    """
-    Takes detected form fields from the Chrome page and maps them to candidate profile data.
-    Uses ultra-fast, cheap text LLM reasoning.
-    """
-    import datetime
-    today = datetime.date.today()
-    two_weeks = today + datetime.timedelta(days=14)
-    
-    profile = req.profile_override or get_candidate_profile()
-    
-    prompt = f"""
-You are an intelligent job application autofill engine.
-Map the provided HTML form fields to the candidate profile data.
-
-CANDIDATE PROFILE:
-{json.dumps(profile, indent=2)}
-
-DETECTED FORM FIELDS:
-{json.dumps(req.fields, indent=2)}
-
-DATE CONTEXT:
-- Today's date: {today.strftime('%Y-%m-%d')} ({today.strftime('%m/%d/%Y')})
-- 2 weeks from now: {two_weeks.strftime('%Y-%m-%d')} ({two_weeks.strftime('%m/%d/%Y')})
-
-INSTRUCTIONS:
-1. For each field in the form, determine the best value to fill based on the candidate profile.
-2. EMPLOYER / EXPERIENCE SECTION:
-   - "Company", "Company/Business name", "Employer name", "Organization": use candidate's company ("Acme Innovations Inc.").
-   - "Designation", "Title", "Job Title", "Position": use candidate's title ("Senior Full-Stack Engineer").
-   - "Start date" or "From" for work experience: use candidate's employment start date ("2020-11-01" or "November 01, 2020" or "11/01/2020").
-   - "I currently work here" / "Current Job": true (or "Yes").
-   - "End date" for current job: leave blank "" or "Present".
-3. EDUCATION SECTION:
-   - "Degree": use "Bachelor of Science".
-   - "Field of study", "Major": use "Computer Science".
-   - "Institution", "School name", "University": use "University of California, Berkeley".
-   - "Start date" or "From" in Education: use candidate's education start date ("2015-08-20" or "August 20, 2015" or "08/20/2015" or "2015").
-   - "End date", "Graduation date", "To" in Education: use candidate's graduation date ("2019-05-15" or "May 15, 2019" or "05/15/2019" or "05/2019" or "2019"). NEVER use today's date or 2026 for a completed college degree!
-   - "Currently pursuing": false (or "No").
-   - "Grade", "GPA": use "3.8".
-4. JOB AVAILABILITY / NOTICE PERIOD:
-   - Only for fields asking when candidate can join this new job (e.g. "Earliest Start Date", "Availability", "Notice Period"): use "{two_weeks.strftime('%Y-%m-%d')}" or "{two_weeks.strftime('%m/%d/%Y')}" or "2 weeks".
-5. WORK AUTHORIZATION & GENERAL:
-   - Legally authorized to work: Yes.
-   - Requires visa sponsorship: No.
-6. DATE FORMATTING:
-   - If input type is "date", return "YYYY-MM-DD".
-   - If placeholder/label indicates "MM/YYYY", return "MM/YYYY" (e.g. "05/2019" or "11/2020").
-   - If placeholder/label indicates "MM/DD/YYYY", return "MM/DD/YYYY" (e.g. "11/01/2020").
-   - If placeholder/label indicates "DD/MM/YYYY", return "DD/MM/YYYY".
-   - If dropdown/select asks for Month: choose month name (e.g. "August" or "November" or "08" or "11").
-   - If dropdown/select asks for Year: choose 4-digit year (e.g. "2015", "2019", "2020").
-7. RESUME UPLOAD:
-   - For file inputs or fields asking for resume/CV: ALWAYS return "__AUTO_UPLOAD_RESUME__".
-8. Return ONLY a valid JSON object with key "matches", mapping field "id" (or "name") to value:
-Example:
-{{
-  "matches": {{
-    "first_name": "Jane",
-    "last_name": "Doe",
-    "email": "jane.doe@example.com",
-    "start_date": "{two_weeks.strftime('%Y-%m-%d')}",
-    "resume_file": "__AUTO_UPLOAD_RESUME__"
-  }}
-}}
+#!/usr/bin/env python3
 """
-    try:
-        kie_key = os.getenv("KIE_API_KEY")
-        if kie_key:
-            from src.config import call_kie_deepseek
-            content = call_kie_deepseek(prompt)
-        else:
-            llm = get_llm()
-            response = llm.invoke(prompt)
-            content = response.content if hasattr(response, "content") else str(response)
-        
-        # Clean markdown codeblocks if present
-        cleaned = content.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        elif cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        
-        data = json.loads(cleaned.strip())
-        return {"success": True, "matches": data.get("matches", {})}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error matching fields: {e}")
+OmniCall Browser Calling Server (server.py)
+Flask management API & web portal for the WhatsApp Web browser calling service.
+Listens on port 3002.
+"""
 
-class EmailPreviewRequest(BaseModel):
-    raw_text: Optional[str] = None
-    items: Optional[List[Dict[str, str]]] = None
+import os
+import sys
+import logging
+from flask import Flask, request, jsonify, render_template_string
+from browser_agent import WhatsAppBrowserCaller
 
-class EmailSendItem(BaseModel):
-    email: str
-    subject: str
-    body_text: str
-    body_html: Optional[str] = None
-    force: bool = True
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-class EmailSendRequest(BaseModel):
-    items: List[EmailSendItem]
+app = Flask(__name__)
+PORT = int(os.environ.get("BROWSER_CALLER_PORT", 3002))
 
-@app.get("/api/email/status")
-def get_email_status():
-    sender = EmailSender()
-    ok, msg = sender.test_connection()
-    return {
-        "smtp_ok": ok,
-        "message": msg,
-        "sender_name": sender.sender_name,
-        "sender_email": sender.sender_email,
-        "host": sender.host,
-        "port": sender.port
-    }
+# Initialize Browser Caller
+caller = WhatsAppBrowserCaller()
 
-@app.post("/api/email/test-smtp")
-def api_test_smtp():
-    sender = EmailSender()
-    ok, msg = sender.test_connection()
-    return {"success": ok, "message": msg}
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmniCall AI: Conversational Voice Caller (Line 1)</title>
+    <meta http-equiv="refresh" content="4">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; margin: 0; padding: 40px 20px; color: #111827; }
+        .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; }
+        .badge { display: inline-block; padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+        .badge-green { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .badge-amber { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .badge-blue { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .code-box { background: #eff6ff; border: 2px dashed #3b82f6; border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0; }
+        .code-text { font-size: 42px; font-weight: 800; font-family: monospace; letter-spacing: 0.2em; color: #1e40af; }
+        .btn { background: #059669; color: #ffffff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background 0.2s; }
+        .btn:hover { background: #047857; }
+        .btn-blue { background: #2563eb; }
+        .btn-blue:hover { background: #1d4ed8; }
+        .btn-red { background: #dc2626; }
+        .btn-red:hover { background: #b91c1c; }
+        input[type="text"] { width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 16px; }
+        .transcript-box { background: #111827; color: #f9fafb; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; max-height: 240px; overflow-y: auto; }
+        .turn-user { color: #60a5fa; margin-bottom: 6px; }
+        .turn-sarah { color: #34d399; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+    <div style="max-width: 680px; margin: 0 auto;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="margin: 0 0 8px 0; font-size: 26px;">📞 OmniCall AI: Conversational Voice Caller</h1>
+            <p style="color: #6b7280; margin: 0 0 16px 0;">Line 1 Companion Device: <b>+880 {{ caller.local_number }}</b></p>
+            {% if caller.is_connected %}
+                <span class="badge badge-green">🟢 CONNECTED & READY TO CALL</span>
+            {% elif caller.call_state != 'idle' %}
+                <span class="badge badge-blue">🔵 CALL IN PROGRESS: {{ caller.call_state.upper() }}</span>
+            {% else %}
+                <span class="badge badge-amber">🟡 PAIRING CODE REQUIRED</span>
+            {% endif %}
+        </div>
 
-@app.post("/api/email/preview")
-def preview_emails(req: EmailPreviewRequest):
-    sender = EmailSender()
-    leads = []
-    if req.raw_text:
-        lines = req.raw_text.strip().split("\n")
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = [p.strip() for p in line.split(",")]
-            leads.append({
-                "email": parts[0],
-                "name": parts[1] if len(parts) > 1 else "",
-                "company": parts[2] if len(parts) > 2 else "",
-                "notes": parts[3] if len(parts) > 3 else ""
-            })
-    elif req.items:
-        leads = req.items
+        {% if not caller.is_connected %}
+        <div class="card">
+            <h2 style="margin-top: 0; font-size: 18px;">📱 Link WhatsApp Web Companion Device</h2>
+            <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">
+                On your phone (<b>+880 {{ caller.local_number }}</b>):<br>
+                1. Open <b>WhatsApp</b> &rarr; tap <b>Settings</b> (or 3 dots).<br>
+                2. Tap <b>Linked Devices</b> &rarr; tap <b>Link a Device</b>.<br>
+                3. At the bottom, tap <b>"Link with phone number instead"</b>.<br>
+                4. Enter the 8-digit code below:
+            </p>
 
-    drafts = []
-    for lead in leads:
-        email = lead.get("email", "").strip()
-        if not email:
-            continue
-        draft = generate_outreach_email(
-            email=email,
-            name=lead.get("name"),
-            company=lead.get("company"),
-            custom_notes=lead.get("notes")
-        )
-        drafts.append({
-            "email": email,
-            "name": lead.get("name", ""),
-            "company": lead.get("company", ""),
-            "subject": draft["subject"],
-            "body_text": draft["body_text"],
-            "body_html": draft["body_html"],
-            "already_sent": sender.is_already_sent(email)
-        })
+            <div class="code-box">
+                <div style="font-size: 13px; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Your 8-Digit Pairing Code:</div>
+                <div class="code-text">{{ caller.pairing_code or 'GENERATING...' }}</div>
+                <small style="color: #9ca3af; display: block; margin-top: 8px;">Auto-refreshes every 4 seconds</small>
+            </div>
 
-    return {"success": True, "count": len(drafts), "drafts": drafts}
+            <div style="text-align: center; margin-top: 16px;">
+                <button class="btn btn-blue" onclick="requestCode()">🔄 Request New 8-Digit Code</button>
+            </div>
+            
+            <div style="margin-top: 24px; text-align: center;">
+                <p style="font-size: 13px; color: #6b7280;">Or scan QR code directly if preferred:</p>
+                <img src="/api/screenshot?t={{ caller.call_start_time or 0 }}" style="max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;" />
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <h2 style="margin-top: 0; font-size: 18px;">🎙️ Outbound Voice Dialing Panel</h2>
+            <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
+                Chrome will navigate to the recipient's chat and click the native WhatsApp Web <b>Voice Call</b> button to connect live audio.
+            </p>
 
-@app.post("/api/email/send")
-def send_emails(req: EmailSendRequest):
-    sender = EmailSender()
-    results = {"sent": 0, "skipped": 0, "failed": 0, "details": []}
-    for item in req.items:
-        res = sender.send_email(
-            to_email=item.email,
-            subject=item.subject,
-            body_text=item.body_text,
-            body_html=item.body_html,
-            force=item.force
-        )
-        results["details"].append(res)
-        if res.get("success"):
-            results["sent"] += 1
-        elif res.get("skipped"):
-            results["skipped"] += 1
-        else:
-            results["failed"] += 1
-    return results
+            <form action="/api/call" method="POST" onsubmit="handleCall(event)">
+                <label style="display:block; font-weight:600; margin-bottom:6px; font-size:14px;">Recipient Phone Number (E.164):</label>
+                <input type="text" id="targetPhone" name="to" value="+8801917427815" placeholder="+8801xxxxxxxxx" required />
+                
+                <div style="display:flex; gap:12px;">
+                    <button type="submit" class="btn" style="flex:1;">📞 Place WhatsApp Voice Call</button>
+                    <button type="button" class="btn btn-red" onclick="handleHangup()">🛑 End Call</button>
+                </div>
+            </form>
+            <div id="callResult" style="margin-top:16px; font-size:14px; font-weight:600;"></div>
+        </div>
 
-@app.get("/api/email/history")
-def get_email_history():
-    sender = EmailSender()
-    return sender.get_history()
+        <div class="card">
+            <h2 style="margin-top: 0; font-size: 18px;">🗣️ Live In-Call Conversational Transcript</h2>
+            <div class="transcript-box">
+                {% if caller.active_call_transcript %}
+                    {% for turn in caller.active_call_transcript %}
+                        {% if turn.role == 'assistant' %}
+                            <div class="turn-sarah"><b>Sarah:</b> {{ turn.text }}</div>
+                        {% else %}
+                            <div class="turn-user"><b>Caller:</b> {{ turn.text }}</div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div style="color: #9ca3af;">(Waiting for active call to connect...)</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
-class EmailChatRequest(BaseModel):
-    message: str
-    history: Optional[List[Dict[str, str]]] = None
+        <div style="text-align: center; font-size: 13px; color: #9ca3af;">
+            Persistent Chrome Profile • Real WebRTC Media Stream • Zero-Cost Telephony
+        </div>
+    </div>
 
-class EmailSearchRequest(BaseModel):
-    query: Optional[str] = None
-    from_address: Optional[str] = None
-    subject_keyword: Optional[str] = None
-    body_keyword: Optional[str] = None
-    limit: int = 10
+    <script>
+        async function requestCode() {
+            try {
+                await fetch('/api/request-code', {method: 'POST'});
+                location.reload();
+            } catch(e) {
+                alert('Request failed');
+            }
+        }
 
-@app.post("/api/email/chat")
-def chat_with_email_agent(req: EmailChatRequest):
-    engine = EmailChatEngine()
-    result = engine.process_chat(req.message, req.history)
-    return result
+        async function handleCall(e) {
+            e.preventDefault();
+            const phone = document.getElementById('targetPhone').value;
+            const resEl = document.getElementById('callResult');
+            resEl.style.color = '#1e40af';
+            resEl.innerText = 'Calling ' + phone + ' via Chrome...';
+            try {
+                const res = await fetch('/api/call', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({to: phone})
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    resEl.style.color = '#065f46';
+                    resEl.innerText = '✅ ' + data.message;
+                } else {
+                    resEl.style.color = '#b91c1c';
+                    resEl.innerText = '❌ Error: ' + (data.error || 'Failed to place call');
+                }
+            } catch (err) {
+                resEl.style.color = '#b91c1c';
+                resEl.innerText = '❌ Request failed: ' + err.message;
+            }
+        }
 
-@app.get("/api/email/inbox")
-def get_inbox_emails(limit: int = 10):
-    reader = EmailReader()
-    try:
-        emails = reader.fetch_recent_emails(limit=limit)
-        return {"success": True, "count": len(emails), "emails": emails}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        async function handleHangup() {
+            const resEl = document.getElementById('callResult');
+            try {
+                await fetch('/api/hangup', {method: 'POST'});
+                resEl.style.color = '#92400e';
+                resEl.innerText = '🛑 Call hung up.';
+            } catch(e) {}
+        }
+    </script>
+</body>
+</html>
+"""
 
-@app.post("/api/email/search")
-def search_inbox_emails(req: EmailSearchRequest):
-    reader = EmailReader()
-    try:
-        results = reader.search_emails(
-            query=req.query,
-            from_address=req.from_address,
-            subject_keyword=req.subject_keyword,
-            body_keyword=req.body_keyword,
-            limit=req.limit
-        )
-        return {"success": True, "count": len(results), "results": results}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route("/", methods=["GET"])
+def index():
+    return render_template_string(HTML_TEMPLATE, caller=caller)
 
-class LeadScrapeRequest(BaseModel):
-    industry: str = "roofing contractors"
-    location: str = "Dallas, TX"
-    count: int = 10
-    no_website_only: bool = True
+@app.route("/api/status", methods=["GET"])
+def api_status():
+    return jsonify({
+        "connected": caller.is_connected,
+        "phone": "+880" + caller.local_number,
+        "pairing_code": caller.pairing_code,
+        "call_state": caller.call_state,
+        "active_target": caller.active_call_target,
+        "transcript": caller.active_call_transcript
+    })
 
-class LeadExportRequest(BaseModel):
-    leads: List[Dict[str, Any]]
-    filename: Optional[str] = "scraped_leads.csv"
+@app.route("/api/request-code", methods=["POST"])
+def api_request_code():
+    code = caller.request_pairing_code()
+    return jsonify({"ok": bool(code), "code": code})
 
-@app.post("/api/leads/scrape")
-def api_scrape_leads(req: LeadScrapeRequest):
-    scraper = LeadScraper()
-    try:
-        if any(w in req.industry.lower() for w in ["it", "software", "tech", "agency", "consulting"]):
-            leads = scraper.find_it_companies(query=req.industry, location=req.location, count=req.count)
-        else:
-            leads = scraper.find_local_businesses(
-                industry=req.industry,
-                location=req.location,
-                count=req.count,
-                no_website_only=req.no_website_only
-            )
-        return {"success": True, "count": len(leads), "leads": leads}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route("/api/show-qr", methods=["POST"])
+def api_show_qr():
+    ok = caller.show_qr_code()
+    return jsonify({"ok": ok})
 
-@app.post("/api/leads/export")
-def api_export_leads(req: LeadExportRequest):
-    scraper = LeadScraper()
-    try:
-        csv_path = scraper.export_to_csv(req.leads, req.filename or "scraped_leads.csv")
-        return {"success": True, "path": str(csv_path), "filename": csv_path.name}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route("/api/call", methods=["POST"])
+def api_call():
+    data = request.get_json(silent=True) or request.form
+    target = data.get("to")
+    if not target:
+        return jsonify({"ok": False, "error": "Missing destination number 'to'"}), 400
+    res = caller.make_voice_call(target)
+    return jsonify(res)
 
-class AIConfigUpdateRequest(BaseModel):
-    provider: str
-    api_key: Optional[str] = None
-    model: Optional[str] = None
+@app.route("/api/screenshot", methods=["GET"])
+def api_screenshot():
+    from flask import send_file
+    path = caller.take_screenshot()
+    if path and os.path.exists(path):
+        return send_file(path, mimetype="image/png")
+    return jsonify({"ok": False, "error": "Failed to take screenshot"}), 500
 
-class AITestRequest(BaseModel):
-    provider: str
-    api_key: str
-    model: Optional[str] = None
-
-@app.get("/api/ai/config")
-def get_ai_config():
-    config = load_ai_config()
-    raw_key = config.get("api_key", "")
-    masked_key = ""
-    if raw_key:
-        if len(raw_key) > 8:
-            masked_key = raw_key[:4] + "..." + raw_key[-4:]
-        else:
-            masked_key = "****"
-    
-    return {
-        "current_provider": config.get("provider", "offline"),
-        "current_model": config.get("model", ""),
-        "has_api_key": bool(raw_key),
-        "masked_api_key": masked_key,
-        "providers": PROVIDERS
-    }
-
-@app.post("/api/ai/config")
-def update_ai_config(req: AIConfigUpdateRequest):
-    try:
-        updated = save_ai_config(req.provider, req.api_key, req.model)
-        return {"success": True, "config": updated}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/api/ai/test")
-def test_ai_connection_endpoint(req: AITestRequest):
-    result = test_provider_connection(req.provider, req.api_key, req.model)
-    return result
+@app.route("/api/hangup", methods=["POST"])
+def api_hangup():
+    res = caller.hangup()
+    return jsonify(res)
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    caller.start()
+    app.run(host="0.0.0.0", port=PORT)

@@ -32,4 +32,6 @@ dependencies = [
     "playwright>=1.45.0",
     "browser-use>=0.1.0",
     "paramiko>=5.1.0",
+    "dnspython>=2.9.2",
+    "phonenumbers>=9.0.43",
 ]
