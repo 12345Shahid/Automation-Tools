@@ -45,7 +45,7 @@ DEFAULT_PHONE = os.environ.get("WHATSAPP_LINE_1", "01746654426")
 
 
 class WhatsAppBrowserCaller(threading.Thread):
-    def __init__(self, phone_number: str = DEFAULT_PHONE, headless: bool = True):
+    def __init__(self, phone_number: str = DEFAULT_PHONE, headless: bool = False):
         super().__init__(daemon=True)
         self.phone_number = phone_number.replace("+", "").replace(" ", "").replace("-", "")
         if self.phone_number.startswith("880"):
@@ -80,7 +80,8 @@ class WhatsAppBrowserCaller(threading.Thread):
         """Dedicated Playwright thread worker."""
         logging.info(f"🌐 Launching Chrome with persistent profile at {PROFILE_DIR}...")
         
-        # Configure PulseAudio environment for Chrome
+        # Configure X11 and PulseAudio environment for Chrome
+        os.environ["DISPLAY"] = os.environ.get("DISPLAY", ":99")
         os.environ["PULSE_SERVER"] = "/var/run/pulse/native"
         os.environ["PULSE_SOURCE"] = "VirtualMicSource"
         os.environ["PULSE_SINK"] = "CallSpeaker"
@@ -89,17 +90,24 @@ class WhatsAppBrowserCaller(threading.Thread):
             launch_args = [
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                "--disable-gpu",
                 "--disable-popup-blocking",
                 "--use-fake-ui-for-media-stream",
                 "--autoplay-policy=no-user-gesture-required",
+                "--disable-features=AudioServiceOutOfProcess",
+                "--alsa-output-device=pulse",
+                "--alsa-input-device=pulse",
                 "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
             ]
 
+            chrome_path = "/usr/bin/google-chrome"
+            if not os.path.exists(chrome_path):
+                chrome_path = None
+
             self.context = p.chromium.launch_persistent_context(
                 user_data_dir=PROFILE_DIR,
-                executable_path="/usr/bin/google-chrome",
+                executable_path=chrome_path,
                 headless=self.headless,
+                ignore_default_args=["--mute-audio"],
                 viewport={"width": 1440, "height": 1200},
                 args=launch_args,
                 env=os.environ
@@ -128,6 +136,7 @@ class WhatsAppBrowserCaller(threading.Thread):
                 self.pairing_code = None
                 logging.info("✅ WhatsApp Web already authenticated and logged in!")
             else:
+                self.is_connected = False
                 logging.info("🟡 WhatsApp Web login required. Ready for pairing.")
 
             self._ready_event.set()
@@ -152,6 +161,13 @@ class WhatsAppBrowserCaller(threading.Thread):
                         res = self._do_show_qr_code()
                         result_box[0] = res
                         result_event.set()
+                    elif cmd == "eval_js":
+                        try:
+                            res = self.page.evaluate(args)
+                            result_box[0] = res
+                        except Exception as e:
+                            result_box[0] = str(e)
+                        result_event.set()
                     elif cmd == "screenshot":
                         path = args or "/var/www/omnicall-ai/browser-caller/screen.png"
                         if self.page:
@@ -159,11 +175,15 @@ class WhatsAppBrowserCaller(threading.Thread):
                         result_box[0] = path
                         result_event.set()
                 except queue.Empty:
-                    # Periodic heartbeat: check if login completed
-                    if not self.is_connected and self._check_if_logged_in():
-                        self.is_connected = True
-                        self.pairing_code = None
-                        logging.info("🎉 Handshake complete! WhatsApp Web is now CONNECTED and saved to disk!")
+                    # Periodic heartbeat: sync login state dynamically
+                    logged_in = self._check_if_logged_in()
+                    if logged_in != self.is_connected:
+                        self.is_connected = logged_in
+                        if logged_in:
+                            self.pairing_code = None
+                            logging.info("🎉 Handshake complete! WhatsApp Web is now CONNECTED and saved to disk!")
+                        else:
+                            logging.info("⚠️ WhatsApp Web session disconnected or awaiting login scan.")
                     
                     # Monitor active call
                     if self.call_state in ("calling", "ringing", "connected"):
@@ -314,50 +334,79 @@ class WhatsAppBrowserCaller(threading.Thread):
                 pass
 
             main_header = None
-
-            # 2. Check if target is already visible in chat list (#pane-side)
             target_short = clean_target[-8:]  # e.g. "17427815"
-            try:
-                chat_row = self.page.locator(f'#pane-side [role="row"]').filter(has_text=target_short).first
-                if chat_row.is_visible():
-                    logging.info(f"Target +{clean_target} found directly in chat list! Clicking row...")
-                    chat_row.click()
-                    time.sleep(2)
-                    if self.page.locator("#main header").first.is_visible():
-                        main_header = self.page.locator("#main header").first
-            except Exception as e:
-                logging.warning(f"Chat list direct click error: {e}")
 
-            # 3. Check if chat is already open for target in #main
-            if not main_header and self.page.locator("#main header").first.is_visible():
+            # 2. Check if chat is ALREADY open for target in #main
+            if self.page.locator("#main header").first.is_visible():
                 header_text = self.page.locator("#main header").first.inner_text().replace(" ", "").replace("-", "")
                 if clean_target in header_text or target_short in header_text:
+                    logging.info(f"Chat with +{clean_target} is ALREADY OPEN in #main header! No navigation needed.")
                     main_header = self.page.locator("#main header").first
 
-            # 4. Open chat via deep link if not opened yet
+            # 3. Check if target is directly visible in recent chat list (#pane-side)
             if not main_header:
-                logging.info(f"Opening chat via URL: https://web.whatsapp.com/send/?phone={clean_target}")
+                try:
+                    chat_row = self.page.locator(f'#pane-side [role="row"]').filter(has_text=target_short).first
+                    if chat_row.is_visible():
+                        logging.info(f"Target +{clean_target} found directly in chat list! Clicking row...")
+                        chat_row.click()
+                        time.sleep(1.5)
+                        if self.page.locator("#main header").first.is_visible():
+                            main_header = self.page.locator("#main header").first
+                except Exception as e:
+                    logging.warning(f"Chat list direct click error: {e}")
+
+            # 4. Search box in #side (instant in-page lookup, zero reload)
+            if not main_header:
+                try:
+                    logging.info(f"Searching for {clean_target} in WhatsApp search bar...")
+                    search = self.page.locator('div[contenteditable="true"][data-tab="3"], [aria-label*="Search" i], #side [role="textbox"]').first
+                    if search.is_visible():
+                        search.click()
+                        self.page.keyboard.press("Meta+A")
+                        self.page.keyboard.press("Control+A")
+                        self.page.keyboard.press("Backspace")
+                        self.page.keyboard.type(clean_target, delay=20)
+                        time.sleep(1.5)
+                        first_cell = self.page.locator('#pane-side [role="row"], #pane-side [data-testid="cell-frame-container"]').first
+                        if first_cell.is_visible():
+                            first_cell.click()
+                            time.sleep(1.5)
+                            if self.page.locator("#main header").first.is_visible():
+                                main_header = self.page.locator("#main header").first
+                except Exception as e:
+                    logging.warning(f"Search box error: {e}")
+
+            # 5. "New Chat" icon (instant in-page lookup, zero reload)
+            if not main_header:
+                try:
+                    logging.info("Trying 'New Chat' button...")
+                    new_chat_btn = self.page.locator('button[aria-label="New chat"], [data-icon="chat"], [data-icon="new-chat-outline"]').first
+                    if new_chat_btn.is_visible():
+                        new_chat_btn.click()
+                        time.sleep(1)
+                        inp = self.page.locator('div[contenteditable="true"]').last
+                        if inp.is_visible():
+                            inp.type(clean_target, delay=20)
+                            time.sleep(1.5)
+                            first_item = self.page.locator('#pane-side [role="row"], [data-testid="cell-frame-container"]').first
+                            if first_item.is_visible():
+                                first_item.click()
+                                time.sleep(1.5)
+                                if self.page.locator("#main header").first.is_visible():
+                                    main_header = self.page.locator("#main header").first
+                except Exception as e:
+                    logging.warning(f"New chat button error: {e}")
+
+            # 6. Fallback: only open URL if absolutely necessary
+            if not main_header:
+                logging.info(f"Fallback: opening chat via URL: https://web.whatsapp.com/send/?phone={clean_target}")
                 self.page.goto(f"https://web.whatsapp.com/send/?phone={clean_target}", timeout=30000, wait_until="domcontentloaded")
                 for _ in range(12):
                     if self.page.locator("#main header").first.is_visible():
                         main_header = self.page.locator("#main header").first
                         break
                     time.sleep(1)
-
-            # 5. Fallback: Search box in #pane-side
-            if not main_header:
-                logging.info(f"Searching for {clean_target} in WhatsApp search bar...")
-                search = self.page.locator('div[contenteditable="true"][data-tab="3"], [aria-label*="Search" i], #side [role="textbox"]').first
-                if search.is_visible():
-                    search.click()
-                    self.page.keyboard.type(clean_target, delay=30)
-                    time.sleep(2)
-                    first_cell = self.page.locator('#pane-side [role="row"], #pane-side [data-testid="cell-frame-container"]').first
-                    if first_cell.is_visible():
-                        first_cell.click()
-                        time.sleep(2)
-                        if self.page.locator("#main header").first.is_visible():
-                            main_header = self.page.locator("#main header").first
 
             if not main_header:
                 self.call_state = "idle"
@@ -367,14 +416,16 @@ class WhatsAppBrowserCaller(threading.Thread):
             logging.info("Chat conversation loaded! Locating Voice Call button strictly inside #main header...")
             time.sleep(1)
 
-            # 5. Locate Voice Call button strictly inside #main header (avoiding video call)
+            # 7. Locate Voice Call button strictly inside #main header (avoiding video call)
             call_selectors = [
                 '#main header button[aria-label*="voice call" i]',
                 '#main header button[aria-label*="audio call" i]',
                 '#main header button[title*="voice call" i]',
                 '#main header button[title*="audio call" i]',
                 '#main header span[data-icon="phone"]',
-                '#main header button:has(span[data-icon="phone"])'
+                '#main header span[data-icon="audio-call"]',
+                '#main header button:has(span[data-icon="phone"])',
+                '#main header button:has(span[data-icon="audio-call"])'
             ]
 
             call_btn = None
@@ -745,6 +796,13 @@ class WhatsAppBrowserCaller(threading.Thread):
         evt = threading.Event()
         box = [False]
         self.cmd_queue.put(("show_qr", None, evt, box))
+        evt.wait(timeout=10)
+        return box[0]
+
+    def eval_js(self, script: str) -> Any:
+        evt = threading.Event()
+        box = [None]
+        self.cmd_queue.put(("eval_js", script, evt, box))
         evt.wait(timeout=10)
         return box[0]
 

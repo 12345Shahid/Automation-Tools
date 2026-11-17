@@ -96,16 +96,23 @@ HTML_TEMPLATE = """
                 On your phone (<b>+880 {{ caller.local_number }}</b>):<br>
                 1. Open <b>WhatsApp</b> &rarr; tap <b>Settings</b> (or 3 dots).<br>
                 2. Tap <b>Linked Devices</b> &rarr; tap <b>Link a Device</b>.<br>
-                3. Scan the QR code below:
+                3. Scan the QR code below or enter the 8-digit code:
             </p>
+
+            <div id="codeDisplayBox" class="code-box" style="display:none;">
+                <div style="font-size: 13px; color: #1e40af; font-weight: 600; margin-bottom: 8px;">ENTER THIS 8-DIGIT CODE ON YOUR PHONE:</div>
+                <div id="codeText" class="code-text">----</div>
+            </div>
 
             <div style="text-align: center; margin-top: 16px;">
                 <img id="qrImage" src="/api/screenshot" style="max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;" />
             </div>
 
-            <div style="text-align: center; margin-top: 16px;">
+            <div style="display: flex; gap: 12px; justify-content: center; margin-top: 16px;">
                 <button class="btn btn-blue" onclick="refreshQr()">🔄 Refresh QR Code</button>
+                <button id="requestCodeBtn" class="btn" style="background:#4f46e5;" onclick="requestCode()">🔢 Generate 8-Digit Code</button>
             </div>
+            <div id="pairingStatusText" style="text-align: center; margin-top: 12px; font-size: 13px; font-weight: 600; color: #4b5563;"></div>
         </div>
 
         <div style="text-align: center; font-size: 13px; color: #9ca3af; margin-top: 24px;">
@@ -115,6 +122,7 @@ HTML_TEMPLATE = """
 
     <script>
         let isPolling = true;
+        let qrPollCount = 0;
 
         async function updateStatus() {
             try {
@@ -138,6 +146,18 @@ HTML_TEMPLATE = """
                     callPanel.style.display = 'none';
                     transcriptCard.style.display = 'none';
                     pairingCard.style.display = 'block';
+
+                    // Auto-refresh QR code every 4 seconds
+                    qrPollCount++;
+                    if (qrPollCount % 2 === 0) {
+                        const qrImg = document.getElementById('qrImage');
+                        if (qrImg) qrImg.src = '/api/screenshot?t=' + Date.now();
+                    }
+                }
+
+                if (data.pairing_code) {
+                    document.getElementById('codeDisplayBox').style.display = 'block';
+                    document.getElementById('codeText').innerText = data.pairing_code;
                 }
 
                 // Update call state pill
@@ -224,6 +244,31 @@ HTML_TEMPLATE = """
             } catch(e) {}
         }
 
+        async function requestCode() {
+            const btn = document.getElementById('requestCodeBtn');
+            const statusText = document.getElementById('pairingStatusText');
+            btn.disabled = true;
+            statusText.innerText = '⏳ Requesting 8-digit pairing code from WhatsApp...';
+            try {
+                const res = await fetch('/api/request-code', {method: 'POST'});
+                const data = await res.json();
+                if (data.ok && data.code) {
+                    document.getElementById('codeDisplayBox').style.display = 'block';
+                    document.getElementById('codeText').innerText = data.code;
+                    statusText.style.color = '#065f46';
+                    statusText.innerText = '✅ Code generated! Input it on your phone under "Link with phone number".';
+                } else {
+                    statusText.style.color = '#b91c1c';
+                    statusText.innerText = '⚠️ Code generation rate-limited by WhatsApp. Please scan the QR code above directly!';
+                }
+            } catch(e) {
+                statusText.style.color = '#b91c1c';
+                statusText.innerText = 'Error: ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         // Poll dynamically every 2 seconds without full-page reloads
         setInterval(updateStatus, 2000);
         updateStatus();
@@ -278,6 +323,13 @@ def api_screenshot():
 def api_hangup():
     res = caller.hangup()
     return jsonify(res)
+
+@app.route("/api/eval", methods=["POST"])
+def api_eval():
+    data = request.get_json(silent=True) or request.form
+    script = data.get("script", "")
+    res = caller.eval_js(script)
+    return jsonify({"result": res})
 
 if __name__ == "__main__":
     caller.start()
