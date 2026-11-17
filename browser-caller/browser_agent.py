@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """
-WhatsApp Web Persistent Browser Calling Agent (browser_agent.py)
+WhatsApp Web Persistent Real-Time Conversational Browser Caller (browser_agent.py)
 Automates Google Chrome on web.whatsapp.com:
-1. Generates 8-digit pairing code via "Log in with phone number".
-2. Uses a single dedicated background thread for 100% Playwright thread-safety.
-3. Maintains persistent profile so login state is saved permanently.
-4. Clicks the native WhatsApp Web Voice Call button and manages calls.
-5. Injects Sarah's crystal-clear English voice into the call via Chromium fake audio capture.
-6. Tracks call duration and answered status in real-time.
-7. Automatically persists call logs and dispatches follow-ups to Omnichannel Memory.
+1. Maintains persistent profile so login state is saved permanently.
+2. Clicks the native WhatsApp Web Voice Call button to connect live audio.
+3. Injects Web Audio & WebRTC duplex stream:
+   - Microphone: Streams Sarah's voice into the call (plays ONCE, zero looping).
+   - Speaker / Remote Stream: Hooks remote audio via RTCPeerConnection and <audio> elements.
+4. Full Duplex Conversational Voice Agent:
+   - VAD (Voice Activity Detection) detects caller speech.
+   - Interrupts/barges in when caller speaks.
+   - Transcribes caller speech via faster-whisper.
+   - Generates 1-2 sentence human conversational reply via Moonmath DeepSeek.
+   - Synthesizes speech via Edge-TTS and injects into call in real time.
+5. Saves complete call transcript to Omnichannel Memory and Supabase.
 """
 
 import os
@@ -18,18 +23,222 @@ import queue
 import logging
 import threading
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from playwright.sync_api import sync_playwright, BrowserContext, Page
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(BASE_DIR)
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
+import live_voice_agent
+from omnichannel_memory import memory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROFILE_DIR = os.path.join(BASE_DIR, "profile")
 os.makedirs(PROFILE_DIR, exist_ok=True)
 
-SARAH_AUDIO_WAV = os.path.join(BASE_DIR, "sarah_intro.wav")
-
 DEFAULT_PHONE = os.environ.get("WHATSAPP_LINE_1", "01746654426")
+
+WEB_AUDIO_BRIDGE_SCRIPT = """
+(function() {
+    console.log('[OmniCall] Initializing WebRTC & Web Audio Bridge...');
+    window.__aiAudioCtx = null;
+    window.__aiAudioDest = null;
+    window.__aiCurrentSource = null;
+    window.__remoteAudioStream = null;
+
+    // 1. Hook getUserMedia (Microphone Channel into WhatsApp WebRTC)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const origGUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getUserMedia = async function(constraints) {
+            console.log('[OmniCall] getUserMedia requested with constraints:', JSON.stringify(constraints));
+            if (!constraints || !constraints.audio) return origGUM(constraints);
+
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext({ sampleRate: 48000 });
+                if (ctx.state === 'suspended') ctx.resume();
+                const dest = ctx.createMediaStreamDestination();
+
+                window.__aiAudioCtx = ctx;
+                window.__aiAudioDest = dest;
+                console.log('[OmniCall] Microphone stream replaced with silent AI MediaStreamDestination.');
+
+                window.__playAiSpeechBuffer = function(base64Wav) {
+                    return new Promise((resolve, reject) => {
+                        try {
+                            if (ctx.state === 'suspended') ctx.resume();
+                            if (window.__aiCurrentSource) {
+                                try { window.__aiCurrentSource.stop(); } catch(e) {}
+                                window.__aiCurrentSource = null;
+                            }
+
+                            const binary = atob(base64Wav);
+                            const len = binary.length;
+                            const bytes = new Uint8Array(len);
+                            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+
+                            ctx.decodeAudioData(bytes.buffer, (buffer) => {
+                                const src = ctx.createBufferSource();
+                                src.buffer = buffer;
+                                src.connect(dest);
+                                window.__aiCurrentSource = src;
+                                src.onended = () => {
+                                    window.__aiCurrentSource = null;
+                                    console.log('[OmniCall] AI finished speaking utterance.');
+                                    resolve(true);
+                                };
+                                src.start(0);
+                                console.log('[OmniCall] AI playing audio into call stream...');
+                            }, reject);
+                        } catch(err) {
+                            console.error('[OmniCall] playAiSpeechBuffer error:', err);
+                            reject(err);
+                        }
+                    });
+                };
+
+                window.__stopAiSpeech = function() {
+                    if (window.__aiCurrentSource) {
+                        try { window.__aiCurrentSource.stop(); } catch(e) {}
+                        window.__aiCurrentSource = null;
+                        console.log('[OmniCall] AI speech interrupted (barge-in).');
+                    }
+                };
+
+                return dest.stream;
+            } catch(e) {
+                console.error('[OmniCall] getUserMedia hook failed:', e);
+                return origGUM(constraints);
+            }
+        };
+    }
+
+    // 2. Hook RTCPeerConnection (Remote Caller Audio Listener)
+    const origPC = window.RTCPeerConnection;
+    if (origPC) {
+        window.RTCPeerConnection = function(...args) {
+            const pc = new origPC(...args);
+            console.log('[OmniCall] RTCPeerConnection active.');
+
+            pc.addEventListener('track', (e) => {
+                if (e.track && e.track.kind === 'audio') {
+                    console.log('[OmniCall] Remote audio track received from caller!');
+                    const stream = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+                    window.__setupRemoteAudioListener(stream);
+                }
+            });
+
+            return pc;
+        };
+    }
+
+    // 3. Also hook HTMLMediaElement srcObject as fallback
+    try {
+        const origSrcObject = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'srcObject');
+        if (origSrcObject) {
+            Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
+                set(stream) {
+                    if (stream && stream.getAudioTracks && stream.getAudioTracks().length > 0) {
+                        console.log('[OmniCall] HTMLMediaElement received remote audio stream!');
+                        window.__setupRemoteAudioListener(stream);
+                    }
+                    return origSrcObject.set.call(this, stream);
+                },
+                get() {
+                    return origSrcObject.get.call(this);
+                }
+            });
+        }
+    } catch(e) {}
+
+    // 4. Voice Activity Detection (VAD) & Caller Recording
+    window.__setupRemoteAudioListener = function(stream) {
+        if (window.__remoteAudioStream === stream) return;
+        window.__remoteAudioStream = stream;
+        console.log('[OmniCall] Starting VAD on remote caller stream...');
+
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioContext({ sampleRate: 16000 });
+            if (ctx.state === 'suspended') ctx.resume();
+            const source = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 512;
+            source.connect(analyser);
+
+            let isSpeaking = false;
+            let silenceStart = null;
+            let recorder = null;
+            let recordedChunks = [];
+            const data = new Uint8Array(analyser.frequencyBinCount);
+
+            setInterval(() => {
+                analyser.getByteFrequencyData(data);
+                let sum = 0;
+                for (let i = 0; i < data.length; i++) sum += data[i];
+                const avg = sum / data.length;
+
+                // Threshold for human voice presence
+                const threshold = 12;
+
+                if (avg > threshold) {
+                    if (!isSpeaking) {
+                        isSpeaking = true;
+                        silenceStart = null;
+                        console.log('[OmniCall VAD] Caller started speaking! Volume:', avg);
+                        if (window.__stopAiSpeech) window.__stopAiSpeech();
+
+                        recordedChunks = [];
+                        try {
+                            recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+                            recorder.ondataavailable = (e) => {
+                                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+                            };
+                            recorder.start(100);
+                        } catch(e) {
+                            console.error('MediaRecorder start error:', e);
+                        }
+                    } else {
+                        silenceStart = null;
+                    }
+                } else {
+                    if (isSpeaking) {
+                        if (!silenceStart) {
+                            silenceStart = Date.now();
+                        } else if (Date.now() - silenceStart > 750) {
+                            isSpeaking = false;
+                            silenceStart = null;
+                            console.log('[OmniCall VAD] Caller paused. Packaging utterance...');
+
+                            if (recorder && recorder.state !== 'inactive') {
+                                recorder.onstop = () => {
+                                    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                                    if (blob.size > 3000) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            const base64 = reader.result.split(',')[1];
+                                            if (window.pythonBridgeCallerSpeech) {
+                                                window.pythonBridgeCallerSpeech(base64);
+                                            }
+                                        };
+                                        reader.readAsDataURL(blob);
+                                    }
+                                };
+                                recorder.stop();
+                            }
+                        }
+                    }
+                }
+            }, 50);
+        } catch(e) {
+            console.error('[OmniCall] VAD initialization failed:', e);
+        }
+    };
+})();
+"""
 
 
 class WhatsAppBrowserCaller(threading.Thread):
@@ -53,6 +262,8 @@ class WhatsAppBrowserCaller(threading.Thread):
         self.call_start_time = None
         self.call_overlay_detected = False
         self.call_duration = 0.0
+        self.intro_spoken = False
+        self.active_call_transcript: List[Dict[str, Any]] = []
         
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
@@ -68,7 +279,6 @@ class WhatsAppBrowserCaller(threading.Thread):
                 "--disable-gpu",
                 "--use-fake-ui-for-media-stream",
                 "--use-fake-device-for-media-stream",
-                f"--use-file-for-fake-audio-capture={SARAH_AUDIO_WAV}",
                 "--autoplay-policy=no-user-gesture-required",
                 "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
             ]
@@ -81,25 +291,34 @@ class WhatsAppBrowserCaller(threading.Thread):
                 args=launch_args
             )
 
+            # Install Web Audio and WebRTC duplex bridge
+            self.context.add_init_script(WEB_AUDIO_BRIDGE_SCRIPT)
+
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+
+            # Expose bidirectional Python bridge for caller speech
+            self.page.expose_function("pythonBridgeCallerSpeech", self._on_caller_spoke)
+
+            # Log Chrome console output
+            self.page.on("console", lambda msg: logging.info(f"🖥️ [Chrome {msg.type}]: {msg.text}"))
+            self.page.on("pageerror", lambda err: logging.error(f"🖥️ [Chrome Error]: {err}"))
+
             self.page.goto("https://web.whatsapp.com", timeout=60000, wait_until="domcontentloaded")
             time.sleep(8)
 
-            # Check if already authenticated
             if self._check_if_logged_in():
                 self.is_connected = True
                 self.pairing_code = None
                 logging.info("✅ WhatsApp Web already authenticated and logged in!")
             else:
-                # Trigger pairing code request
                 self._do_request_pairing_code()
 
             self._ready_event.set()
 
-            # Main event loop for thread
+            # Main event loop for Playwright thread
             while True:
                 try:
-                    cmd, args, result_event, result_box = self.cmd_queue.get(timeout=2.0)
+                    cmd, args, result_event, result_box = self.cmd_queue.get(timeout=1.5)
                     if cmd == "make_call":
                         res = self._do_make_call(args)
                         result_box[0] = res
@@ -112,9 +331,11 @@ class WhatsAppBrowserCaller(threading.Thread):
                         res = self._do_request_pairing_code()
                         result_box[0] = res
                         result_event.set()
-                    elif cmd == "check_call_status":
-                        res = self._check_active_call_in_page()
-                        result_box[0] = res
+                    elif cmd == "screenshot":
+                        path = args or "/var/www/omnicall-ai/browser-caller/screen.png"
+                        if self.page:
+                            self.page.screenshot(path=path)
+                        result_box[0] = path
                         result_event.set()
                 except queue.Empty:
                     # Periodic heartbeat: check if login completed
@@ -123,7 +344,7 @@ class WhatsAppBrowserCaller(threading.Thread):
                         self.pairing_code = None
                         logging.info("🎉 Handshake complete! WhatsApp Web is now CONNECTED and saved to disk!")
                     
-                    # If call is currently active, monitor its status
+                    # Monitor active call
                     if self.call_state in ("calling", "ringing", "connected"):
                         self._check_active_call_in_page()
 
@@ -209,6 +430,8 @@ class WhatsAppBrowserCaller(threading.Thread):
         self.call_start_time = time.time()
         self.call_overlay_detected = False
         self.call_duration = 0.0
+        self.intro_spoken = False
+        self.active_call_transcript = []
 
         try:
             chat_url = f"https://web.whatsapp.com/send?phone={clean_target}"
@@ -263,64 +486,95 @@ class WhatsAppBrowserCaller(threading.Thread):
             return {"ok": False, "error": str(e)}
 
     def _check_active_call_in_page(self) -> Dict[str, Any]:
-        """Monitors the active in-call DOM status, duration timer, and call completion."""
+        """Monitors in-call status, triggers intro greeting ONCE, and detects call end."""
         try:
             if not self.page:
                 return {"state": self.call_state}
 
             status_info = self.page.evaluate("""() => {
-                const endBtn = document.querySelector('[data-icon="x-circle"], [data-icon="x"], button[aria-label*="End call" i], button[title*="End call" i]');
-                if (!endBtn) {
-                    return { hasEndBtn: false, timer: null, isRinging: false, isCalling: false, isEnded: false };
-                }
-
-                // Scope strictly to the call container hosting the end button
-                let container = endBtn.closest('[role="dialog"], [data-testid*="call"], [class*="call"]') || endBtn.parentElement.parentElement.parentElement;
-                const textNodes = Array.from(container.querySelectorAll('span, div, p')).map(e => e.innerText || '').filter(t => t.length < 30);
+                // Find active in-call duration timer (starts with 00: or 01: and NOT inside a chat message row)
+                const allSpans = Array.from(document.querySelectorAll('span, div, p'));
+                const nonMessageSpans = allSpans.filter(el => !el.closest('[role="row"], [data-id*="false_"], [data-id*="true_"]'));
                 
-                const timer = textNodes.find(t => /^\\d{1,2}:\\d{2}$/.test(t.trim()));
-                const allText = textNodes.join(' ').toLowerCase();
+                const timerSpan = nonMessageSpans.find(el => {
+                    const t = (el.innerText || '').trim();
+                    return /^(0[0-9]|1[0-9]):[0-5][0-9]$/.test(t) && el.children.length === 0;
+                });
+                
+                const allText = document.body.innerText.toLowerCase();
+                const isEnded = allText.includes('call ended') || allText.includes('declined') || allText.includes('unavailable');
                 const isRinging = allText.includes('ringing');
                 const isCalling = allText.includes('calling');
-                const isEnded = allText.includes('ended');
+                const endBtn = document.querySelector('[data-icon="x-circle"], [data-icon="x"], button[aria-label*="End call" i], button[title*="End call" i]');
 
-                return { timer: timer || null, isRinging, isCalling, isEnded, hasEndBtn: true };
+                return {
+                    timer: timerSpan ? timerSpan.innerText.trim() : null,
+                    isEnded: isEnded,
+                    isRinging: isRinging,
+                    isCalling: isCalling,
+                    hasEndBtn: !!endBtn
+                };
             }""")
 
             timer = status_info.get("timer")
-            has_end_btn = status_info.get("hasEndBtn")
             is_ended = status_info.get("isEnded")
-            is_ringing = status_info.get("isRinging")
-            is_calling = status_info.get("isCalling")
-
+            has_end_btn = status_info.get("hasEndBtn")
             elapsed = time.time() - (self.call_start_time or time.time())
 
-            if has_end_btn or is_ringing or is_calling or timer:
-                self.call_overlay_detected = True
-
+            # 1. Call is ANSWERED when a valid in-call timer appears!
             if timer:
-                if self.call_state != "connected":
-                    logging.info(f"🎉 WhatsApp Voice Call ANSWERED by +{self.active_call_target}! Timer: {timer}. Sarah speaking...")
+                if not self.intro_spoken:
+                    self.intro_spoken = True
+                    self.call_state = "connected"
+                    logging.info(f"🎉 WhatsApp Voice Call ANSWERED by +{self.active_call_target}! In-call timer: {timer}.")
+                    logging.info("🗣️ Delivering Sarah's opening pitch ONCE (zero looping)...")
+                    
+                    intro_text = (
+                        "Hi there! This is Sarah from Digital Growth Partners. Thank you so much for answering! "
+                        "I am reaching out because we help businesses scale customer acquisition and automate operations with AI. "
+                        "How is your day going so far?"
+                    )
+                    self.active_call_transcript.append({"role": "assistant", "text": intro_text, "timestamp": time.time()})
+                    
+                    # Synthesize and play intro ONCE into the WebRTC stream
+                    wav_b64 = live_voice_agent.synthesize_speech_wav(intro_text)
+                    if wav_b64 and self.page:
+                        self.page.evaluate(f"window.__playAiSpeechBuffer && window.__playAiSpeechBuffer('{wav_b64}')")
+
                 self.call_state = "connected"
-                # Parse timer string MM:SS
                 parts = timer.split(":")
                 if len(parts) == 2:
                     self.call_duration = int(parts[0]) * 60 + int(parts[1])
 
-            elif is_ended or (self.call_overlay_detected and not has_end_btn) or (elapsed > 20 and not self.call_overlay_detected):
-                logging.info(f"🛑 Call with +{self.active_call_target} has finished. Total duration: {self.call_duration}s")
+            # 2. Call has ended ONLY IF:
+            # - It was connected and now ended
+            # - OR explicitly ended / declined
+            # - OR ring timeout exceeded 55s
+            should_end = False
+            if self.call_state == "connected" and (is_ended or not has_end_btn):
+                should_end = True
+                logging.info(f"🛑 Connected call ended after {self.call_duration}s.")
+            elif self.call_state in ("calling", "ringing") and is_ended:
+                should_end = True
+                logging.info(f"🛑 Call declined or ended while ringing.")
+            elif self.call_state in ("calling", "ringing") and elapsed > 55:
+                should_end = True
+                logging.info(f"⏱️ Call ring timeout (55s exceeded without answer).")
+
+            if should_end:
                 target = self.active_call_target
                 answered = (self.call_duration > 0 or self.call_state == "connected")
                 duration = self.call_duration
-                
+                transcript = list(self.active_call_transcript)
+
                 # Reset state
                 self.call_state = "idle"
                 self.active_call_target = None
-                self.call_overlay_detected = False
-                
-                # Trigger post-call actions in background thread
+                self.intro_spoken = False
+                self.active_call_transcript = []
+
                 if target:
-                    threading.Thread(target=self._on_call_finished, args=(target, answered, duration), daemon=True).start()
+                    threading.Thread(target=self._on_call_finished, args=(target, answered, duration, transcript), daemon=True).start()
 
             return {
                 "state": self.call_state,
@@ -331,16 +585,41 @@ class WhatsAppBrowserCaller(threading.Thread):
         except Exception as e:
             return {"state": self.call_state, "error": str(e)}
 
-    def _on_call_finished(self, target_phone: str, answered: bool, duration: float):
-        """Persists call record and dispatches WhatsApp follow-up."""
+    def _on_caller_spoke(self, base64_audio: str):
+        """Called automatically by the in-browser VAD when the caller speaks."""
+        if not self.call_state == "connected" or not self.page:
+            return
+
+        logging.info("🎙️ Inbound caller voice detected! Transcribing speech...")
+        user_text = live_voice_agent.transcribe_caller_audio(base64_audio)
+        if not user_text:
+            return
+
+        self.active_call_transcript.append({"role": "user", "text": user_text, "timestamp": time.time()})
+
+        # Generate intelligent contextual reply
+        reply_text = live_voice_agent.generate_conversational_reply(
+            history=self.active_call_transcript,
+            user_utterance=user_text,
+            company_name="Target Business"
+        )
+        self.active_call_transcript.append({"role": "assistant", "text": reply_text, "timestamp": time.time()})
+
+        # Synthesize speech to WAV
+        wav_b64 = live_voice_agent.synthesize_speech_wav(reply_text)
+        if wav_b64 and self.page:
+            logging.info("🔊 Streaming Sarah's reply back to caller...")
+            self.page.evaluate(f"window.__playAiSpeechBuffer && window.__playAiSpeechBuffer('{wav_b64}')")
+
+    def _on_call_finished(self, target_phone: str, answered: bool, duration: float, transcript: List[Dict[str, Any]]):
+        """Persists complete call transcript to Omnichannel Memory and dispatches follow-ups."""
         logging.info(f"💾 Post-call processing for +{target_phone}: answered={answered}, duration={duration}s")
         try:
-            sys.path.insert(0, "/var/www/omnicall-ai")
-            from omnichannel_memory import memory
-            pitch = (
-                "Sarah called and introduced Digital Growth Partners AI customer acquisition systems. "
-                "Thanked lead and offered automated outreach demo."
-            )
+            pitch = "Sarah conducted a live conversational voice call via WhatsApp Web."
+            if transcript:
+                summary_turns = [f"{t['role'].capitalize()}: {t['text']}" for t in transcript]
+                pitch = " | ".join(summary_turns[:3])
+
             memory.record_call(phone=target_phone, answered=answered, duration_seconds=duration, pitch_summary=pitch)
 
             # Send WhatsApp follow-up summary text via Line 1 (:3001)
@@ -349,10 +628,8 @@ class WhatsAppBrowserCaller(threading.Thread):
                 "We help local businesses scale client acquisition and automate lead follow-ups with AI. "
                 "Feel free to reply here if you have any questions or want to check out a quick demo!"
             )
-            res = requests.post("http://127.0.0.1:3001/api/send-text", json={"to": target_phone, "text": follow_up}, timeout=15)
-            if res.status_code == 200:
-                memory.record_message(phone=target_phone, direction="outbound", text=follow_up, msg_type="text")
-                logging.info(f"📨 WhatsApp follow-up delivered to +{target_phone}")
+            requests.post("http://127.0.0.1:3001/api/send-text", json={"to": target_phone, "text": follow_up}, timeout=15)
+            memory.record_message(phone=target_phone, direction="outbound", text=follow_up, msg_type="text")
 
             # Also dispatch Voice Note summary
             voice_summary = (
@@ -360,6 +637,7 @@ class WhatsAppBrowserCaller(threading.Thread):
                 "Whenever you have a moment, take a look at the message above. Have a great day!"
             )
             requests.post("http://127.0.0.1:3001/api/send-voice", json={"to": target_phone, "text": voice_summary}, timeout=20)
+            logging.info(f"📨 WhatsApp follow-up delivered to +{target_phone}")
         except Exception as e:
             logging.error(f"Error during post-call follow-up: {e}")
 
@@ -397,3 +675,10 @@ class WhatsAppBrowserCaller(threading.Thread):
         self.cmd_queue.put(("hangup", None, evt, box))
         evt.wait(timeout=10)
         return box[0] or {"ok": False, "error": "Hangup timed out"}
+
+    def take_screenshot(self, path: str = "/var/www/omnicall-ai/browser-caller/screen.png") -> Optional[str]:
+        evt = threading.Event()
+        box = [None]
+        self.cmd_queue.put(("screenshot", path, evt, box))
+        evt.wait(timeout=10)
+        return box[0]

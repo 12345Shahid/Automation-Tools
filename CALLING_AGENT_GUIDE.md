@@ -1,112 +1,113 @@
-# OmniCall AI: Autonomous Calling & Omnichannel Outreach Agent Manual
+# OmniCall AI: Live Browser Calling Agent & Long-Term Omnichannel Memory Guide
 
-> [!NOTE]
-> **Status**: 🟢 **ONLINE & FULLY OPERATIONAL**  
-> Line 1 (`+8801746654426`) operates with a **Dual-Companion Architecture**:
-> * **Device 1 (Baileys Gateway :3001)**: High-speed text outreach & studio Neural TTS Voice Notes (PTT).
-> * **Device 2 (Chrome Browser Caller :3002)**: Native WhatsApp Web engine clicking the Voice Call button and placing live ringing WebRTC calls.
-> * **Test Call Verified**: Ringing call successfully triggered to `+8801917427815`.
-
----
-
-## 1. System Overview & Core Objectives
-
-OmniCall AI (VoicePulse AI) is an autonomous, multi-agent outbound business development engine designed to replace costly carrier telephony (e.g., SignalWire/Twilio per-minute charges) with $0-cost WhatsApp VoIP calling, high-impact Voice Notes, and smart automated text follow-ups.
-
-### Key Capabilities
-* **Dual-Companion Engine on Single Number**: Both Baileys and Playwright Chrome are paired to `+8801746654426` simultaneously.
-* **Native WhatsApp Web Voice Calling**: Automates Google Chrome with persistent session state to navigate to contact chats and click the official **Voice Call button** with WebRTC audio.
-* **Studio-Quality Neural Voice Notes (PTT)**: Edge-TTS + FFmpeg Opus generating human-like American sales voice memos directly in chats with zero carrier cost.
-* **Serper Google Maps Lead Scraper**: Discovers local contractors and commercial targets, normalizes phone numbers to E.164, and avoids duplicate calls via Supabase checks.
-* **Sarah Persona Consultation State Machine**: Outbound AI consultant pitching a free custom 24/7 AI Lead Assistant.
-* **Answering Machine Detection (AMD)**: Detects voicemails within 2.0 seconds and triggers an instant hangup to avoid wasting bandwidth.
-* **Supabase Omnichannel Telemetry**: Persists call logs, audio transcripts, durations, and lead pipeline states in real time.
-* **Detached Background Daemon**: Operates asynchronously in the background (`agent_worker.py`) without blocking developer workflows.
+> [!IMPORTANT]
+> **Production Status (VPS: `187.52.124.4`)**:
+> - **Line 1 Primary Phone**: `+8801746654426` (Paired simultaneously on both companions).
+> - **Test Target Number**: `01917427815` (`+8801917427815`).
+> - **Decoy Persona Protection**: `+880 1712-394812` (Nilima) is strictly isolated and bypassed from any AI interactions.
+> - **Language**: English ONLY across all outbound calls, voice notes, and contextual replies.
+> - **Telephony Cost**: **\$0 carrier expense** via WhatsApp Multi-Device infrastructure.
 
 ---
 
-## 2. Dual-Companion System Architecture
+## 1. System Architecture Overview
+
+OmniCall AI solves the WhatsApp voice calling challenge by leveraging WhatsApp's native multi-device feature to bind **two complementary companion devices** to the same primary phone number:
 
 ```mermaid
-flowchart TD
-    subgraph Lead_Pipeline["1. Lead Discovery & Ingestion"]
-        A["Google Maps Scraper\n(pipeline_scraper.py)"] -->|Serper API| B["Supabase Database\n(calls_ai_leads)"]
-    end
-
-    subgraph Dual_Companion["2. Dual-Companion WhatsApp Fleet (+8801746654426)"]
-        direction TB
-        C["Outreach Orchestrator\n(whatsapp_voice_agent.py)"]
-        
-        C -->|Instant Messages & Voice Notes| D["Device 1: Baileys Gateway :3001\n(baileys_manager.js)"]
-        C -->|Native Voice Calls| E["Device 2: Chrome Caller :3002\n(browser_agent.py / server.py)"]
-        
-        D -->|High-Speed RAM Socket| F["WhatsApp Phone\n(+8801746654426)"]
-        E -->|WebRTC Voice Call Button| F
-    end
-
-    subgraph Telemetry["3. Analytics & Logging"]
-        D --> G["Supabase Telemetry\n(calls_ai_call_logs)"]
-        E --> G
-    end
+graph TD
+    PrimaryPhone["Primary Phone (+880 1746654426)"] -->|Device 1 Pairing| BaileysGateway["Device 1: Baileys Gateway (:3001)<br/>(Text Messages, Green Voice Notes/PTT)"]
+    PrimaryPhone -->|Device 2 Pairing| BrowserCaller["Device 2: Headless Chrome (:3002)<br/>(Live WebRTC Browser Calls)"]
+    
+    BrowserCaller -->|Live Voice Call| TargetLead["Target Lead (+880 1917427815)"]
+    BrowserCaller -->|Audio Injection| SarahTTS["Sarah Natural Voice (48kHz PCM)<br/>Edge-TTS en-US-AriaNeural"]
+    
+    TargetLead -->|1. Live Voice Call Answered| BrowserCaller
+    TargetLead -->|2. Inbound WhatsApp Text| BaileysGateway
+    TargetLead -->|3. Inbound Voice Note / PTT| BaileysGateway
+    
+    BaileysGateway -->|Forward Inbound| InboundAgent["Inbound Memory Agent (:3003)<br/>(faster-whisper + Moonmath DeepSeek)"]
+    InboundAgent -->|Query Interaction History| MemoryStore[("Omnichannel Memory Engine<br/>omnichannel_memory.json + Supabase")]
+    InboundAgent -->|Contextual Human Reply| BaileysGateway
 ```
 
 ---
 
-## 3. Directory & File Inventory
+## 2. Active Services & Process Map
 
-All project files are synced locally at `voicepulse-ai/` and on the VPS at `/var/www/omnicall-ai/`:
-
-| File / Component | Purpose |
-| :--- | :--- |
-| [browser-caller/browser_agent.py](file:///var/www/omnicall-ai/browser-caller/browser_agent.py) | Playwright Chrome automation engine managing persistent session, 8-digit pairing, and Call button clicking. |
-| [browser-caller/server.py](file:///var/www/omnicall-ai/browser-caller/server.py) | Flask web dashboard & REST API on port `3002` (`https://caller.187.52.124.4.sslip.io`). |
-| [whatsapp-ai-agent/baileys_manager.js](file:///var/www/omnicall-ai/whatsapp-ai-agent/baileys_manager.js) | Lightweight Baileys pairing & REST gateway on port `3001` with 8-digit pairing code & PTT voice notes. |
-| [whatsapp_voice_agent.py](file:///var/www/omnicall-ai/whatsapp_voice_agent.py) | Sarah persona calling state machine, AMD logic, dynamic text fallback, Supabase telemetry. |
-| [pipeline_scraper.py](file:///var/www/omnicall-ai/pipeline_scraper.py) | Google Maps Places lead discovery via Serper, E.164 normalization, Supabase deduplication. |
-| [agent_worker.py](file:///var/www/omnicall-ai/agent_worker.py) | Detached background daemon (`start`, `status`, `stop`) executing batch campaigns asynchronously. |
-| [master_orchestrator.py](file:///var/www/omnicall-ai/master_orchestrator.py) | Multi-agent fleet manager and Supabase analytics aggregator generating Daily Executive Reports. |
-| [test_outreach.py](file:///var/www/omnicall-ai/test_outreach.py) | CLI utility to trigger an instant call and message cycle to a specific test phone number. |
-| [.env](file:///var/www/omnicall-ai/.env) | Secrets: Supabase URL, Service Role Key, Serper API Key, and KIE LLM API Key. |
+| Service Name | PM2 ID | Port | Directory | Role & Function |
+| :--- | :--- | :--- | :--- | :--- |
+| **`browser-caller`** | `8` | `3002` | `/var/www/omnicall-ai/browser-caller/` | Persistent Chrome caller. Clicks WhatsApp Web voice call button and injects Sarah's audio. |
+| **`omnicall-manager`** | `7` | `3001` | `/var/www/omnicall-ai/whatsapp-ai-agent/` | Baileys WebSocket gateway for text dispatch, PTT Voice Notes, and inbound listening. |
+| **`inbound-agent`** | `9` | `3003` | `/var/www/omnicall-ai/` | Omnichannel conversational memory daemon. Transcribes audio, retrieves context, and queries DeepSeek. |
+| **`stealth-copilot`** | `5` | `5050` | `/var/www/omnicall-ai/` | Real-time campaign telemetry and live dashboard portal. |
 
 ---
 
-## 4. Live Service URLs & Port Allocations
+## 3. Real-Time English Voice Call Audio System
 
-| Service Name | Port | Public HTTPS URL | PM2 Process Name | Status |
-| :--- | :---: | :--- | :--- | :---: |
-| **Browser Voice Caller** | `3002` | [https://caller.187.52.124.4.sslip.io](https://caller.187.52.124.4.sslip.io) | `browser-caller` | 🟢 Online |
-| **Baileys Messaging Gateway** | `3001` | [https://omnicall.187.52.124.4.sslip.io](https://omnicall.187.52.124.4.sslip.io) | `omnicall-manager` | 🟢 Online |
-| **Stealth Copilot** | `5050` | [https://copilot.187.52.124.4.sslip.io](https://copilot.187.52.124.4.sslip.io) | `stealth-copilot` | 🟢 Online |
+### Synthetic Audio Injection
+When Chrome launches in `browser_agent.py`, it attaches a 48kHz mono 16-bit PCM WAV generated by Edge-TTS (`en-US-AriaNeural`):
+- Flag: `--use-fake-device-for-media-stream`
+- Flag: `--use-file-for-fake-audio-capture=/var/www/omnicall-ai/browser-caller/sarah_intro.wav`
+- Flag: `--autoplay-policy=no-user-gesture-required`
+
+### Call Lifecycle & Answer Detection
+1. **Initiation**: Chrome opens `https://web.whatsapp.com/send?phone=8801917427815` and clicks the voice call button in the chat header.
+2. **Ringing**: WhatsApp Web shows the call overlay with status `Ringing...`.
+3. **Answered (Human Connection)**: When the recipient picks up, the in-call elapsed timer appears (`00:01`, `00:02`). The agent detects this scoped strictly to the active call overlay.
+4. **Speech**: Sarah's introduction plays directly into the call's microphone channel:
+   > *"Hello! This is Sarah calling from Digital Growth Partners. Thank you so much for answering! I am reaching out because we help businesses scale their customer acquisition and automate operations with AI. I know you might be busy right now, so I will also follow up directly here on WhatsApp with a voice note and details. How are things going with your business this week?"*
+5. **Post-Call Auto-Completion**:
+   - The call duration is logged to `omnichannel_memory.json` and Supabase `calls_ai_call_logs`.
+   - Baileys automatically dispatches the WhatsApp follow-up summary text and a follow-up Voice Note (PTT) to the recipient.
 
 ---
 
-## 5. Operations & Execution Commands
+## 4. Human-Like Omnichannel Conversational Memory
 
-### A. Place a WhatsApp Voice Call via Browser Engine
-1. Open the dialer UI: **[https://caller.187.52.124.4.sslip.io](https://caller.187.52.124.4.sslip.io)**
-2. Enter the destination number (e.g. `+8801917427815`) and click **"📞 Place WhatsApp Voice Call"**.
-3. Or trigger via CLI:
-```bash
-ssh antigravity-vps 'curl -s -X POST http://localhost:3002/api/call -H "Content-Type: application/json" -d "{\"to\": \"+8801917427815\"}"'
+A real human sales agent never forgets a conversation. OmniCall AI guarantees complete memory continuity across days or weeks:
+
+```
+Lead Timeline Example:
+[10:00 AM] -> Sarah places WhatsApp voice call. Lead answers (28s duration).
+[10:01 AM] -> Sarah sends WhatsApp summary text + voice note.
+[10:35 AM] -> (30 mins later) Lead replies: "How much does it cost?"
+[10:35 AM] -> Sarah replies: "Hey, thanks for following up after our call earlier! Pricing depends on your specific goals, but our AI client acquisition systems start at $299/mo..."
+[2 Days Later] -> Lead replies: "Can you send a demo link?"
+[2 Days Later] -> Sarah replies: "Absolutely! Building on what we spoke about..."
 ```
 
-### B. Hang Up an Active Call
+### Inbound Memory Flow:
+1. **Message Arrives**: `baileys_manager.js` receives notification in `messages.upsert`.
+2. **Decoy Check**: If sender is `+8801712394812` (Nilima), the message is bypassed immediately.
+3. **Voice Note Transcription**: If the sender sent a WhatsApp Voice Note (`audioMessage`), Baileys downloads the buffer and `inbound_memory_agent.py` transcribes it via `faster_whisper` (`tiny.en`) in under 1 second.
+4. **Context Injection**: The agent pulls the complete historical timeline for that number:
+   - Call records (timestamp, duration, pitch summary, outcome).
+   - All past messages (both inbound and outbound).
+5. **LLM Generation**: Injected into Moonmath DeepSeek (`deepseek-v4.1-flash`) with Sarah's persona:
+   - Natural, conversational tone (2 to 3 sentences max).
+   - References prior calls and messages naturally.
+   - English ONLY.
+6. **Delivery**: Reply is dispatched via Line 1 (`:3001`) as text (or green PTT voice note).
+7. **Persistence**: Turn is appended to `omnichannel_memory.json` and synced to Supabase `calls_ai_leads`.
+
+---
+
+## 5. Live Production Dashboards & API Endpoints
+
+- **Browser Calling Dashboard**: [https://caller.187.52.124.4.sslip.io](https://caller.187.52.124.4.sslip.io)
+- **Baileys Gateway Portal**: [https://omnicall.187.52.124.4.sslip.io](https://omnicall.187.52.124.4.sslip.io)
+- **Stealth Copilot Telemetry**: [https://copilot.187.52.124.4.sslip.io](https://copilot.187.52.124.4.sslip.io)
+
+### Triggering a Call via API:
 ```bash
-ssh antigravity-vps 'curl -s -X POST http://localhost:3002/api/hangup'
+curl -X POST http://127.0.0.1:3002/api/call \
+  -H "Content-Type: application/json" \
+  -d '{"to": "+8801917427815"}'
 ```
 
-### C. Dispatch an Instant AI Voice Note (PTT)
+### Checking Status:
 ```bash
-ssh antigravity-vps 'curl -s -X POST http://localhost:3001/api/send-voice -H "Content-Type: application/json" -d "{\"to\": \"+8801917427815\", \"text\": \"Hi Hasan! This is Sarah calling you from Digital Growth Partners with a quick update on your AI assistant.\"}"'
-```
-
-### D. Run Full Outreach Test Cycle
-```bash
-ssh antigravity-vps "python3 /var/www/omnicall-ai/test_outreach.py --to '+8801917427815' --name 'Hasan' --company 'Hasan Enterprise'"
-```
-
-### E. Start Autonomous Background Daemon
-```bash
-ssh antigravity-vps "python3 /var/www/omnicall-ai/agent_worker.py start"
-ssh antigravity-vps "python3 /var/www/omnicall-ai/agent_worker.py status"
+curl http://127.0.0.1:3002/api/status
 ```
